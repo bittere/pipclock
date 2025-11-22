@@ -8,48 +8,104 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-color: #f5f5f7;
+            --text-color: #1d1d1f;
+            --button-bg: #1d1d1f;
+            --button-text: #ffffff;
+            --button-hover: #333336;
+            --panel-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #000000;
+            --text-color: #f5f5f7;
+            --button-bg: #f5f5f7;
+            --button-text: #000000;
+            --button-hover: #e8e8ed;
+            --panel-bg: #1c1c1e;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
         body {
-            font-family: 'Inter', sans-serif;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: #f0f0f0;
+            background: var(--bg-color);
+            transition: background 0.3s ease, color 0.3s ease;
         }
 
         .clock {
-            font-size: 120px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 40px;
+            font-size: 140px;
+            font-weight: 700;
+            color: var(--text-color);
+            margin-bottom: 60px;
             font-variant-numeric: tabular-nums;
+            letter-spacing: -4px;
+            transition: color 0.3s ease;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 16px;
+            align-items: center;
         }
 
         button {
-            padding: 15px 30px;
-            font-size: 18px;
-            background: #007bff;
-            color: white;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
+            background: var(--button-bg);
+            color: var(--button-text);
             border: none;
-            border-radius: 8px;
+            border-radius: 980px; /* Pill shape */
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         button:hover {
-            background: #0056b3;
+            background: var(--button-hover);
+            transform: scale(1.02);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        button:active {
+            transform: scale(0.98);
         }
 
         button:disabled {
-            background: #ccc;
+            opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
+        }
+
+        #darkModeToggle {
+            padding: 14px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .icon {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
         }
 
         /* Hidden video element for PiP */
@@ -67,7 +123,24 @@
 </head>
 <body>
     <div class="clock" id="clock">00:00</div>
-    <button id="pipButton">Enter Picture-in-Picture</button>
+    <div class="button-container">
+        <button id="pipButton">
+            <svg class="icon" viewBox="0 0 24 24">
+                <path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/>
+            </svg>
+            Picture in Picture
+        </button>
+        <button id="darkModeToggle" aria-label="Toggle Dark Mode">
+            <!-- Moon Icon (for light mode) -->
+            <svg class="icon moon-icon" viewBox="0 0 24 24" style="display: block;">
+                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+            </svg>
+            <!-- Sun Icon (for dark mode) -->
+            <svg class="icon sun-icon" viewBox="0 0 24 24" style="display: none;">
+                <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/>
+            </svg>
+        </button>
+    </div>
 
     <canvas id="clockCanvas" width="840" height="360"></canvas>
     <video id="pipVideo" autoplay muted></video>
@@ -75,11 +148,52 @@
     <script>
         const clockDisplay = document.getElementById('clock');
         const pipButton = document.getElementById('pipButton');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const moonIcon = document.querySelector('.moon-icon');
+        const sunIcon = document.querySelector('.sun-icon');
         const canvas = document.getElementById('clockCanvas');
         const video = document.getElementById('pipVideo');
         const ctx = canvas.getContext('2d');
 
         let animationId = null;
+        let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+        // Initialize dark mode
+        function initDarkMode() {
+            if (isDarkMode) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                moonIcon.style.display = 'none';
+                sunIcon.style.display = 'block';
+            } else {
+                moonIcon.style.display = 'block';
+                sunIcon.style.display = 'none';
+            }
+        }
+
+        // Toggle dark mode
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            localStorage.setItem('darkMode', isDarkMode);
+            
+            if (isDarkMode) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                moonIcon.style.display = 'none';
+                sunIcon.style.display = 'block';
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                moonIcon.style.display = 'block';
+                sunIcon.style.display = 'none';
+            }
+        }
+
+        // Get current theme colors
+        function getThemeColors() {
+            const computedStyle = getComputedStyle(document.documentElement);
+            return {
+                bg: computedStyle.getPropertyValue('--bg-color').trim(),
+                text: computedStyle.getPropertyValue('--text-color').trim()
+            };
+        }
 
         // Update clock display
         function updateClock() {
@@ -102,11 +216,12 @@
         function drawClockOnCanvas() {
             // Scale for high DPI
             const scale = 3;
+            const colors = getThemeColors();
             
-            ctx.fillStyle = '#f0f0f0';
+            ctx.fillStyle = colors.bg;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            ctx.fillStyle = '#333';
+            ctx.fillStyle = colors.text;
             ctx.font = 'bold 240px Inter';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -195,6 +310,12 @@
             pipButton.disabled = true;
             pipButton.textContent = 'PiP Not Supported';
         }
+
+        // Dark mode toggle event listener
+        darkModeToggle.addEventListener('click', toggleDarkMode);
+
+        // Initialize dark mode on load
+        initDarkMode();
 
         // Update clock every second
         updateClock();
