@@ -15,6 +15,8 @@
             --button-text: #ffffff;
             --button-hover: #333336;
             --panel-bg: #ffffff;
+            --cps-bg: rgba(0, 0, 0, 0.8);
+            --cps-text: #ffffff;
         }
 
         [data-theme="dark"] {
@@ -24,6 +26,8 @@
             --button-text: #000000;
             --button-hover: #e8e8ed;
             --panel-bg: #1c1c1e;
+            --cps-bg: rgba(255, 255, 255, 0.9);
+            --cps-text: #000000;
         }
 
         * {
@@ -108,6 +112,59 @@
             fill: currentColor;
         }
 
+        #cpsDisplay {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--cps-bg);
+            color: var(--cps-text);
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 18px;
+            opacity: 0;
+            transform: translateX(120%) scale(0.8);
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        #cpsDisplay.visible {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+        }
+
+        #cpsDisplay.shake {
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px) rotate(-2deg); }
+            20%, 40%, 60%, 80% { transform: translateX(4px) rotate(2deg); }
+        }
+
+        .cps-number {
+            display: block;
+            font-size: 24px;
+        }
+
+        .cps-animal {
+            display: block;
+            font-size: 28px;
+            margin-top: 4px;
+        }
+
+        .cps-label {
+            display: block;
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
         /* Hidden video element for PiP */
         #pipVideo {
             display: none;
@@ -122,6 +179,7 @@
     </style>
 </head>
 <body>
+    <div id="cpsDisplay">0 CPS</div>
     <div class="clock" id="clock">00:00</div>
     <div class="button-container">
         <button id="pipButton">
@@ -153,10 +211,48 @@
         const sunIcon = document.querySelector('.sun-icon');
         const canvas = document.getElementById('clockCanvas');
         const video = document.getElementById('pipVideo');
+        const cpsDisplay = document.getElementById('cpsDisplay');
         const ctx = canvas.getContext('2d');
 
         let animationId = null;
         let isDarkMode = localStorage.getItem('darkMode') === 'true';
+        let clickTimestamps = [];
+        let cpsTimeout = null;
+
+        // Track clicks for CPS
+        function trackClick() {
+            const now = Date.now();
+            clickTimestamps.push(now);
+            
+            // Remove clicks older than 1 second
+            clickTimestamps = clickTimestamps.filter(t => now - t <= 1000);
+            
+            const cps = clickTimestamps.length;
+            
+            if (cps > 4) {
+                let animal = '🐢';
+                let animalName = 'Turtle';
+                if (cps >= 7) { animal = '🐇'; animalName = 'Rabbit'; }
+                if (cps >= 10) { animal = '🐎'; animalName = 'Horse'; }
+                if (cps >= 13) { animal = '🐆'; animalName = 'Cheetah'; }
+                
+                cpsDisplay.innerHTML = `<span class="cps-number">${cps} CPS</span><span class="cps-animal">${animal}</span><span class="cps-label">${animalName}</span>`;
+                cpsDisplay.classList.add('visible');
+                
+                // Add shake effect for high CPS
+                if (cps > 10) {
+                    cpsDisplay.classList.remove('shake');
+                    void cpsDisplay.offsetWidth; // Trigger reflow
+                    cpsDisplay.classList.add('shake');
+                }
+                
+                // Reset hide timeout
+                if (cpsTimeout) clearTimeout(cpsTimeout);
+                cpsTimeout = setTimeout(() => {
+                    cpsDisplay.classList.remove('visible');
+                }, 1000);
+            }
+        }
 
         // Initialize dark mode
         function initDarkMode() {
@@ -236,55 +332,78 @@
             animationId = requestAnimationFrame(renderLoop);
         }
 
+        let isPipTransitioning = false;
+
+        // Helper to update button text while keeping icon
+        function updatePipButtonText(text) {
+            const icon = pipButton.querySelector('.icon');
+            pipButton.innerHTML = '';
+            if (icon) pipButton.appendChild(icon);
+            pipButton.appendChild(document.createTextNode(' ' + text));
+        }
+
         // Enter Picture-in-Picture mode
         async function enterPiP() {
+            if (isPipTransitioning) return;
+            isPipTransitioning = true;
+
             try {
-                // Start rendering clock to canvas
-                const stream = canvas.captureStream(30); // 30 FPS for smoother updates
-                video.srcObject = stream;
+                // Only set up stream if not already set (prevents resetting on rapid clicks)
+                if (!video.srcObject) {
+                    const stream = canvas.captureStream(30);
+                    video.srcObject = stream;
+                }
                 
-                // Start animation loop
-                renderLoop();
+                // Start animation loop if not running
+                if (!animationId) {
+                    renderLoop();
+                }
                 
                 // Wait for video to be ready
-                await new Promise((resolve) => {
-                    if (video.readyState >= 2) {
-                        resolve();
-                    } else {
+                if (video.readyState < 2) {
+                    await new Promise((resolve) => {
                         video.addEventListener('loadeddata', resolve, { once: true });
-                    }
-                });
+                    });
+                }
                 
                 // Ensure video is playing
                 await video.play();
                 
-                // Small delay to ensure video is actually playing
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
                 // Enter PiP mode
                 await video.requestPictureInPicture();
-                pipButton.textContent = 'Exit Picture-in-Picture';
+                updatePipButtonText('Exit Picture-in-Picture');
             } catch (error) {
                 console.error('Error entering PiP:', error);
-                if (animationId) {
-                    cancelAnimationFrame(animationId);
-                    animationId = null;
+                // Only alert if it's a real error, not just a user cancellation or race condition
+                if (error.name !== 'NotAllowedError' || error.message.includes('Metadata')) {
+                     // Suppress "Metadata" errors which are likely race conditions from rapid clicking
+                     if (!error.message.includes('Metadata')) {
+                        alert('Picture-in-Picture failed: ' + error.message);
+                     }
                 }
-                alert('Picture-in-Picture failed: ' + error.message);
+            } finally {
+                isPipTransitioning = false;
             }
         }
 
         // Exit Picture-in-Picture mode
         async function exitPiP() {
+            if (isPipTransitioning) return;
+            isPipTransitioning = true;
+            
             try {
                 await document.exitPictureInPicture();
             } catch (error) {
                 console.error('Error exiting PiP:', error);
+            } finally {
+                isPipTransitioning = false;
             }
         }
 
         // Handle PiP button click
         pipButton.addEventListener('click', async () => {
+            trackClick();
+            
             if (document.pictureInPictureElement) {
                 await exitPiP();
             } else {
@@ -294,25 +413,25 @@
 
         // Handle PiP state changes
         video.addEventListener('enterpictureinpicture', () => {
-            pipButton.textContent = 'Exit Picture-in-Picture';
+            updatePipButtonText('Exit Picture-in-Picture');
         });
 
         video.addEventListener('leavepictureinpicture', () => {
-            pipButton.textContent = 'Enter Picture-in-Picture';
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-                animationId = null;
-            }
+            updatePipButtonText('Picture in Picture');
+            // Don't stop animation immediately to allow quick re-entry
         });
 
         // Check if PiP is supported
         if (!document.pictureInPictureEnabled) {
             pipButton.disabled = true;
-            pipButton.textContent = 'PiP Not Supported';
+            updatePipButtonText('PiP Not Supported');
         }
 
         // Dark mode toggle event listener
-        darkModeToggle.addEventListener('click', toggleDarkMode);
+        darkModeToggle.addEventListener('click', () => {
+            toggleDarkMode();
+            trackClick();
+        });
 
         // Initialize dark mode on load
         initDarkMode();
