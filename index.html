@@ -119,6 +119,30 @@
             transform: none;
         }
 
+        #chatToggle {
+            position: fixed;
+            bottom: 40px;
+            left: 40px;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            z-index: 998;
+        }
+
+        #chatToggle:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        #chatToggle .icon {
+            width: 20px;
+            height: 20px;
+        }
+
         #darkModeToggle {
             padding: 14px;
             width: 50px;
@@ -139,7 +163,7 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            background: var(--cps-bg);
+            background: linear-gradient(135deg, var(--cps-bg) 0%, rgba(70, 70, 80, 0.8) 100%);
             color: var(--cps-text);
             padding: 12px 24px;
             border-radius: 20px;
@@ -195,9 +219,11 @@
 
         /* Canvas for rendering clock to video */
         #clockCanvas {
-            display: none;
-            width: 280px;
-            height: 120px;
+            position: fixed;
+            top: -9999px;
+            left: -9999px;
+            width: 1280px;
+            height: 720px;
         }
 
         /* Chat Panel Styles */
@@ -229,7 +255,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: transparent;
+            background: linear-gradient(180deg, rgba(91, 156, 255, 0.05) 0%, transparent 100%);
         }
 
         .chat-title-container {
@@ -308,6 +334,34 @@
             box-shadow: 0 0 8px rgba(52, 199, 89, 0.4);
         }
 
+        .chat-search-container {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--chat-border);
+        }
+
+        #chatSearch {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 16px;
+            border: 1px solid var(--chat-border);
+            border-radius: 16px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s ease;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        #chatSearch::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        #chatSearch:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(91, 156, 255, 0.1);
+        }
 
         .chat-messages {
             flex: 1;
@@ -329,6 +383,38 @@
         .chat-messages::-webkit-scrollbar-thumb {
             background: var(--chat-border);
             border-radius: 3px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 18px;
+            background: rgba(128, 128, 128, 0.1);
+            border-radius: 22px;
+            width: fit-content;
+            margin-top: 8px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+            30% { transform: translateY(-8px); opacity: 1; }
         }
 
         .message {
@@ -365,11 +451,14 @@
             font-size: 14px;
             font-weight: 600;
             color: var(--text-color);
-            opacity: 0.6;
             padding: 0 4px;
             letter-spacing: -0.1px;
             line-height: 1.4;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .message-username.colored {
+            opacity: 1;
         }
 
         .message-bubble {
@@ -387,6 +476,76 @@
             box-shadow: none;
             letter-spacing: -0.1px;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .message-content {
+            flex: 1;
+        }
+
+        .message-status {
+            font-size: 12px;
+            opacity: 0.6;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .message-reactions {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+
+        .message:hover .message-reactions,
+        .message-reactions.has-reactions {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .reaction-btn {
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: rgba(128, 128, 128, 0.1);
+            border: 1px solid transparent;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .reaction-btn:hover {
+            background: rgba(91, 156, 255, 0.15);
+            border-color: var(--accent);
+        }
+
+        .reaction-btn.active {
+            background: rgba(91, 156, 255, 0.25);
+            border-color: var(--accent);
+        }
+
+        .reaction-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-color);
+            opacity: 0.7;
+            display: none;
+        }
+
+        .reaction-btn.has-count .reaction-count {
+            display: inline;
         }
 
         .message.self .message-bubble {
@@ -394,6 +553,17 @@
             color: var(--message-self-text);
             border: none;
             box-shadow: none;
+            flex-direction: row-reverse;
+        }
+
+        .message.self .message-status {
+            opacity: 0.8;
+            color: var(--message-self-text);
+        }
+
+        .message.self .reaction-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--message-self-text);
         }
 
         .message.system .message-bubble {
@@ -407,6 +577,7 @@
             border: none;
             box-shadow: none;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            display: block;
         }
 
         .message-time {
@@ -416,6 +587,47 @@
             padding: 0 4px;
             line-height: 1.4;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            cursor: help;
+            transition: opacity 0.2s ease;
+        }
+
+        .message-time:hover {
+            opacity: 0.8;
+            white-space: nowrap;
+        }
+
+        .message-time::after {
+            content: attr(data-full-time);
+            position: absolute;
+            bottom: -30px;
+            left: 0;
+            background: var(--text-color);
+            color: var(--bg-color);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 100;
+        }
+
+        .message-time:hover::after {
+            opacity: 1;
+        }
+
+        .mention {
+            background: rgba(91, 156, 255, 0.2);
+            color: var(--accent);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .mention:hover {
+            background: rgba(91, 156, 255, 0.35);
         }
 
         .chat-input-container {
@@ -453,18 +665,18 @@
         #chatInput:focus {
             border-color: var(--accent);
             background: var(--panel-bg);
-            box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.08);
+            box-shadow: 0 0 0 2px rgba(91, 156, 255, 0.08);
         }
 
         #sendButton {
             padding: 14px 28px;
             border-radius: 18px;
             white-space: nowrap;
-            background: var(--accent);
+            background: linear-gradient(135deg, var(--accent) 0%, #4a87ff 100%);
             color: white;
             font-weight: 500;
             font-size: 16px;
-            box-shadow: none;
+            box-shadow: 0 4px 12px rgba(91, 156, 255, 0.3);
             flex-shrink: 0;
             line-height: 1.6;
             letter-spacing: -0.1px;
@@ -473,7 +685,7 @@
         
         #sendButton:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);
+            box-shadow: 0 6px 16px rgba(91, 156, 255, 0.4);
         }
         
         .chat-input-actions {
@@ -499,295 +711,201 @@
             box-shadow: none;
         }
 
-        #plusButton .icon {
-            fill: currentColor;
-            width: 18px;
-            height: 18px;
+        #plusButton:hover {
+            background: rgba(91, 156, 255, 0.1);
+            border-color: var(--accent);
+            transform: none;
+            box-shadow: none;
         }
 
-        #plusButton:hover, #plusButton.active {
-            background: var(--message-bg);
+        #plusButton.active {
+            background: rgba(91, 156, 255, 0.15);
             border-color: var(--accent);
-            transform: rotate(45deg);
         }
 
         .chat-dropdown {
             position: absolute;
-            bottom: 50px;
+            bottom: 60px;
             left: 0;
             background: var(--panel-bg);
             border: 1px solid var(--chat-border);
-            border-radius: 24px;
-            padding: 14px;
-            min-width: 160px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-            display: none;
+            border-radius: 16px;
+            display: flex;
             flex-direction: column;
-            gap: 0;
-            z-index: 100;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            animation: scaleIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            transform-origin: bottom left;
+            gap: 8px;
+            padding: 8px;
+            min-width: 160px;
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.2s ease;
+            z-index: 1001;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
         }
 
         .chat-dropdown.visible {
-            display: flex;
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .chat-dropdown button {
+            padding: 12px 16px;
+            border-radius: 12px;
             background: transparent;
-            border: none;
             color: var(--text-color);
-            padding: 14px 16px;
-            border-radius: 16px;
+            text-align: left;
+            font-size: 15px;
+            border: none;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 12px;
-            font-size: 16px;
-            font-weight: 500;
-            text-align: left;
-            transition: background 0.2s;
+            transition: all 0.15s ease;
             box-shadow: none;
-            width: 100%;
-            line-height: 1.6;
-            letter-spacing: -0.1px;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            justify-content: flex-start;
         }
 
         .chat-dropdown button:hover {
             background: var(--input-bg);
             transform: none;
+            box-shadow: none;
         }
 
         .dropdown-icon {
             font-size: 18px;
         }
 
-        @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.8); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        /* Inline Race Widget */
         .race-widget {
-            background: var(--message-bg);
-            color: var(--text-color);
-            border: 1px solid var(--chat-border);
+            background: linear-gradient(135deg, rgba(91, 156, 255, 0.1) 0%, rgba(100, 150, 255, 0.05) 100%);
+            border: 1px solid rgba(91, 156, 255, 0.2);
+            border-radius: 24px;
             padding: 24px;
-            border-radius: 28px;
-            text-align: center;
-            width: 240px;
-            margin: 8px 0;
-            box-shadow: none;
             cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            user-select: none;
-            position: relative;
-            overflow: hidden;
+            transition: all 0.3s ease;
+            text-align: center;
         }
 
-        .race-widget:active {
-            transform: scale(0.98);
-        }
-        
         .race-widget:hover:not(.disabled) {
-            background: var(--input-bg);
+            background: linear-gradient(135deg, rgba(91, 156, 255, 0.15) 0%, rgba(100, 150, 255, 0.1) 100%);
+            border-color: rgba(91, 156, 255, 0.4);
+            transform: translateY(-2px);
         }
 
         .race-widget.disabled {
-            cursor: default;
-            transform: none;
+            opacity: 0.7;
+            cursor: not-allowed;
         }
 
         .race-header {
-            font-size: 13px;
-            opacity: 0.8;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 16px;
             font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-color);
         }
 
         .race-counter {
-            font-size: 32px;
+            font-size: 48px;
             font-weight: 700;
-            margin: 4px 0;
-            font-variant-numeric: tabular-nums;
+            color: var(--accent);
+            margin-bottom: 8px;
+            animation: pulse 0.4s ease;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
         }
 
         .race-timer {
-            font-size: 12px;
-            opacity: 0.6;
-            margin-top: 4px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
         }
 
         .race-progress-bar {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 4px;
-            background: #007aff;
-            width: 0%;
-            transition: width 0.1s linear;
+            width: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--accent) 0%, #4a87ff 100%);
+            border-radius: 3px;
+            margin-bottom: 16px;
+            transition: width 0.05s linear;
         }
 
-        /* Leaderboard in Widget */
         .race-results {
-            margin-top: 12px;
-            border-top: 1px solid var(--chat-border);
-            padding-top: 12px;
             text-align: left;
+            margin-top: 16px;
         }
 
         .result-row {
             display: flex;
+            gap: 12px;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
-            font-size: 12px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-color);
         }
 
         .result-bar-bg {
             flex: 1;
-            height: 6px;
-            background: var(--input-bg);
-            border-radius: 3px;
+            height: 8px;
+            background: rgba(128, 128, 128, 0.1);
+            border-radius: 4px;
             overflow: hidden;
         }
 
         .result-bar-fill {
             height: 100%;
-            background: #007aff;
-            border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent) 0%, #4a87ff 100%);
+            border-radius: 4px;
         }
 
         .result-score {
-            font-weight: 700;
             min-width: 40px;
             text-align: right;
+            font-weight: 600;
+            color: var(--accent);
         }
 
-        #chatToggle {
-            position: fixed;
-            left: 24px;
-            bottom: 24px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-            z-index: 998;
-            background: var(--panel-bg);
-            color: var(--text-color);
-            border: 1px solid var(--chat-border);
-        }
-        
-        #chatToggle:hover {
-            transform: scale(1.05);
-        }
-
-        #chatToggle .icon {
-            width: 28px;
-            height: 28px;
-        }
-        
-        /* Notification Badge */
-        .notification-badge {
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            background: #ff3b30;
-            color: white;
-            font-size: 12px;
-            font-weight: bold;
-            min-width: 22px;
-            height: 22px;
-            border-radius: 11px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 6px;
-            border: 2px solid var(--bg-color);
-            transform: scale(0);
-            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        
-        .notification-badge.visible {
-            transform: scale(1);
-        }
-
-        .chat-status {
-            padding: 8px 16px;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-color);
-            opacity: 0.6;
-            border-bottom: 1px solid var(--chat-border);
-            background: var(--panel-bg);
-        }
         /* Toast Notification */
         #toastNotification {
             position: fixed;
-            bottom: 100px;
-            left: 24px;
-            background: var(--panel-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--chat-border);
-            border-left: 6px solid var(--message-self-bg); /* Accent border */
-            padding: 20px 24px;
-            border-radius: 20px;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 997;
-            max-width: 380px;
-            min-width: 280px;
-            transform: translateY(40px) scale(0.9);
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            bottom: 40px;
+            right: 40px;
+            background: linear-gradient(135deg, var(--text-color) 0%, rgba(58, 58, 63, 0.9) 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             cursor: pointer;
+            opacity: 0;
+            transform: translateY(120%) scale(0.8);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+            z-index: 10000;
+            max-width: 340px;
         }
-        
-        #toastNotification:hover {
-            transform: translateY(0) scale(1.02);
-            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
-        }
-        
+
         #toastNotification.visible {
-            transform: translateY(0) scale(1);
             opacity: 1;
+            transform: translateY(0) scale(1);
             pointer-events: auto;
-            animation: toastBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        
-        @keyframes toastBounce {
-            0% { transform: translateY(40px) scale(0.9); opacity: 0; }
-            60% { transform: translateY(-10px) scale(1.05); opacity: 1; }
-            100% { transform: translateY(0) scale(1); opacity: 1; }
-        }
-        
+
         .toast-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--message-self-bg);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 15px;
         }
-        
+
         .toast-message {
-            font-size: 16px;
-            color: var(--text-color);
+            font-size: 14px;
+            opacity: 0.95;
             line-height: 1.5;
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -809,6 +927,30 @@
         @keyframes particle-fade {
             0% { transform: translate(0, 0) scale(1); opacity: 1; }
             100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            animation: ripple-expand 0.6s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes ripple-expand {
+            0% { width: 10px; height: 10px; opacity: 0.5; }
+            100% { width: 200px; height: 200px; opacity: 0; }
+        }
+
+        @media (max-width: 768px) {
+            #chatPanel {
+                width: 100%;
+            }
+
+            #chatPanel.open ~ .clock,
+            #chatPanel.open ~ .button-container {
+                margin-left: 0;
+            }
         }
     </style>
 </head>
@@ -850,6 +992,12 @@
             </button>
         </div>
         <div id="chatStatus" class="chat-status" style="display: none;">Connecting...</div>
+        
+        <!-- Search Bar -->
+        <div class="chat-search-container">
+            <input type="text" id="chatSearch" placeholder="Search messages...">
+        </div>
+
         <div class="chat-messages" id="chatMessages">
             <!-- Messages will be appended here dynamically -->
         </div>
@@ -871,7 +1019,7 @@
                     </button>
                 </div>
             </div>
-            <input type="text" id="chatInput" placeholder="Type a message..." maxlength="500">
+            <input type="text" id="chatInput" placeholder="Type a message... (Shift+Enter for newline)" maxlength="500">
             <button id="sendButton">Send</button>
         </div>
     </div>
@@ -896,7 +1044,7 @@
         </button>
     </div>
 
-    <canvas id="clockCanvas" width="840" height="360"></canvas>
+    <canvas id="clockCanvas" width="1280" height="720"></canvas>
     <video id="pipVideo" autoplay muted></video>
 
     <script>
@@ -914,13 +1062,28 @@
         let isDarkMode = localStorage.getItem('darkMode') === 'true';
         let clickTimestamps = [];
         let cpsTimeout = null;
+        let pipStream = null;
+
+        // User color mapping for consistent colors per user
+        const userColors = new Map();
+        const colorPalette = [
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
+            '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#A8E6CF'
+        ];
+
+        function getUserColor(username) {
+            if (!userColors.has(username)) {
+                const color = colorPalette[userColors.size % colorPalette.length];
+                userColors.set(username, color);
+            }
+            return userColors.get(username);
+        }
 
         // Track clicks for CPS
         function trackClick() {
             const now = Date.now();
             clickTimestamps.push(now);
             
-            // Remove clicks older than 1 second
             clickTimestamps = clickTimestamps.filter(t => now - t <= 1000);
             
             const cps = clickTimestamps.length;
@@ -935,14 +1098,12 @@
                 cpsDisplay.innerHTML = `<span class="cps-number">${cps} CPS</span><span class="cps-animal">${animal}</span><span class="cps-label">${animalName}</span>`;
                 cpsDisplay.classList.add('visible');
                 
-                // Add shake effect for high CPS
                 if (cps > 10) {
                     cpsDisplay.classList.remove('shake');
-                    void cpsDisplay.offsetWidth; // Trigger reflow
+                    void cpsDisplay.offsetWidth;
                     cpsDisplay.classList.add('shake');
                 }
                 
-                // Reset hide timeout
                 if (cpsTimeout) clearTimeout(cpsTimeout);
                 cpsTimeout = setTimeout(() => {
                     cpsDisplay.classList.remove('visible');
@@ -994,9 +1155,8 @@
             const minutes = now.getMinutes();
             const ampm = hours >= 12 ? 'PM' : 'AM';
             
-            // Convert to 12-hour format
             hours = hours % 12;
-            hours = hours ? hours : 12; // 0 should be 12
+            hours = hours ? hours : 12;
             
             const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
             clockDisplay.textContent = timeString;
@@ -1006,20 +1166,28 @@
 
         // Draw clock on canvas for PiP
         function drawClockOnCanvas() {
-            // Scale for high DPI
-            const scale = 3;
             const colors = getThemeColors();
+            const paddingX = 140;
             
+            // Clear with theme background
             ctx.fillStyle = colors.bg;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Draw with theme text color, matching main clock
             ctx.fillStyle = colors.text;
-            ctx.font = 'bold 240px Inter';
+            ctx.font = '700 420px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            const timeString = updateClock();
-            ctx.fillText(timeString, canvas.width / 2, canvas.height / 2);
+            // Get current time in HH:MM format (24-hour, matching updateClock)
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            
+            const timeString = `${String(hours).padStart(2, '0')}:${minutes}`;
+            ctx.fillText(timeString, paddingX + (canvas.width - paddingX * 2) / 2, canvas.height / 2);
         }
 
         // Render loop for canvas
@@ -1042,38 +1210,27 @@
         async function enterPiP() {
             if (isPipTransitioning) return;
             isPipTransitioning = true;
-
+            
             try {
-                // Only set up stream if not already set (prevents resetting on rapid clicks)
-                if (!video.srcObject) {
-                    const stream = canvas.captureStream(30);
-                    video.srcObject = stream;
-                }
+                // Make sure stream is fresh and connected
+                pipStream = canvas.captureStream(30);
+                video.srcObject = pipStream;
                 
-                // Start animation loop if not running
+                // Play the video to start the stream
+                video.play().catch(err => console.log('Play error (expected):', err));
+                
+                // Make sure rendering is active
                 if (!animationId) {
                     renderLoop();
                 }
                 
-                // Wait for video to be ready
-                if (video.readyState < 2) {
-                    await new Promise((resolve) => {
-                        video.addEventListener('loadeddata', resolve, { once: true });
-                    });
-                }
+                // Give it time to start flowing
+                await new Promise(resolve => setTimeout(resolve, 150));
                 
-                // Ensure video is playing
-                await video.play();
-                
-                // Enter PiP mode
                 await video.requestPictureInPicture();
-                updatePipButtonText('Exit Picture-in-Picture');
-            } catch (error) {
-                console.error('Error entering PiP:', error);
-                // Only alert if it's a real error, not just a user cancellation or race condition
-                if (error.name !== 'NotAllowedError' && !error.message.includes('Metadata')) {
-                    alert('Picture-in-Picture failed: ' + error.message);
-                }
+                console.log('PiP entered successfully');
+            } catch (err) {
+                console.error('PiP failed:', err);
             } finally {
                 isPipTransitioning = false;
             }
@@ -1086,8 +1243,12 @@
             
             try {
                 await document.exitPictureInPicture();
-            } catch (error) {
-                console.error('Error exiting PiP:', error);
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+            } catch (err) {
+                console.error('Exit PiP failed:', err);
             } finally {
                 isPipTransitioning = false;
             }
@@ -1111,7 +1272,6 @@
 
         video.addEventListener('leavepictureinpicture', () => {
             updatePipButtonText('Picture in Picture');
-            // Don't stop animation immediately to allow quick re-entry
         });
 
         // Check if PiP is supported
@@ -1132,6 +1292,9 @@
         // Update clock every second
         updateClock();
         setInterval(updateClock, 1000);
+        
+        // Start rendering the canvas for PiP
+        renderLoop();
 
         // ===== CHAT & RACE MODULES =====
 
@@ -1225,7 +1388,7 @@
 
         // --- Race Manager ---
         const RaceManager = {
-            activeRaces: new Map(), // raceId -> { active, clicks, ... }
+            activeRaces: new Map(),
 
             createWidget(raceId) {
                 const widget = document.createElement('div');
@@ -1249,10 +1412,8 @@
                 let raceState = this.activeRaces.get(raceId);
 
                 if (!raceState) {
-                    // Start new local race attempt
                     this.startLocalRace(raceId, widget);
                 } else if (raceState.active) {
-                    // Count click
                     this.countClick(raceId, widget);
                 }
             },
@@ -1269,11 +1430,9 @@
                 
                 this.activeRaces.set(raceId, state);
                 
-                // Initial UI update
                 widget.querySelector('.race-counter').textContent = state.clicks;
                 widget.querySelector('.race-timer').textContent = '4.9s remaining';
 
-                // Start Timer
                 state.timer = setInterval(() => {
                     const elapsed = (Date.now() - state.startTime) / 1000;
                     const remaining = Math.max(0, 5 - elapsed);
@@ -1295,7 +1454,6 @@
                 widget.querySelector('.race-counter').textContent = state.clicks;
                 SoundManager.click();
                 
-                // Particles
                 const rect = widget.getBoundingClientRect();
                 ChatClient.createParticles(rect.left + rect.width/2, rect.top + rect.height/2);
             },
@@ -1309,7 +1467,6 @@
                 widget.classList.add('disabled');
                 widget.querySelector('.race-timer').textContent = 'Race Finished!';
                 
-                // Submit Score
                 ChatClient.send({
                     type: 'submit_score',
                     raceId: raceId,
@@ -1332,7 +1489,7 @@
                     const percent = (entry.score / maxScore) * 100;
                     html += `
                         <div class="result-row">
-                            <div style="width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${entry.username}</div>
+                            <div style="flex-shrink: 0; min-width: 100px; font-weight: 600;">${entry.username}</div>
                             <div class="result-bar-bg">
                                 <div class="result-bar-fill" style="width: ${percent}%"></div>
                             </div>
@@ -1350,6 +1507,9 @@
             isOpen: false,
             currentUsername: null,
             reconnectTimeout: null,
+            allMessages: [],
+            typingUsers: new Set(),
+            messageReactions: new Map(),
             
             elements: {
                 panel: document.getElementById('chatPanel'),
@@ -1364,7 +1524,8 @@
                 dropdown: document.getElementById('chatDropdown'),
                 raceBtn: document.getElementById('startRaceButton'),
                 clearBtn: document.getElementById('clearChatButton'),
-                username: document.getElementById('chatUsername')
+                username: document.getElementById('chatUsername'),
+                search: document.getElementById('chatSearch')
             },
 
             init() {
@@ -1379,10 +1540,20 @@
                 this.elements.toggleBtn.addEventListener('click', () => this.toggleChat());
                 this.elements.closeBtn.addEventListener('click', () => this.toggleChat(false));
 
-                // Sending Messages
+                // Sending Messages with keyboard shortcuts
                 this.elements.sendBtn.addEventListener('click', () => this.sendMessage());
                 this.elements.input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') this.sendMessage();
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                // Escape to close chat
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.isOpen) {
+                        this.toggleChat(false);
+                    }
                 });
 
                 // Dropdown
@@ -1411,6 +1582,12 @@
                     this.elements.dropdown.classList.remove('visible');
                     this.elements.plusBtn.classList.remove('active');
                 });
+
+                // Search functionality
+                this.elements.search.addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase();
+                    this.filterMessages(query);
+                });
             },
 
             toggleChat(forceState) {
@@ -1420,6 +1597,7 @@
                 if (this.isOpen) {
                     NotificationManager.resetUnread();
                     setTimeout(() => this.elements.input.focus(), 100);
+                    this.autoScrollToBottom();
                 }
             },
 
@@ -1490,6 +1668,9 @@
                     case 'update_leaderboard':
                         RaceManager.updateLeaderboard(data.raceId, data.leaderboard);
                         break;
+                    case 'reaction':
+                        this.updateReaction(data.messageId, data.emoji, data.count);
+                        break;
                     case 'user_joined':
                         this.addSystemMessage(`${data.username} joined`);
                         this.updateOnlineCount(data.userCount);
@@ -1511,21 +1692,90 @@
             addMessageToUI(data, shouldNotify) {
                 const div = document.createElement('div');
                 div.className = 'message';
-                if (data.username === this.currentUsername) div.classList.add('self');
+                const isSelf = data.username === this.currentUsername;
+                if (isSelf) div.classList.add('self');
+
+                const userColor = getUserColor(data.username);
+                const fullTime = new Date(data.timestamp).toLocaleString();
 
                 div.innerHTML = `
-                    <div class="message-username">${data.username}</div>
-                    <div class="message-bubble">${data.text}</div>
-                    <div class="message-time">${this.formatTime(data.timestamp)}</div>
+                    <div class="message-username colored" style="color: ${userColor};">${data.username}</div>
+                    <div class="message-bubble">
+                        <div class="message-content">${this.formatMessageText(data.text)}</div>
+                        <div class="message-status">✓</div>
+                    </div>
+                    <div class="message-time" data-full-time="${fullTime}">${this.formatTime(data.timestamp)}</div>
+                    <div class="message-reactions" data-message-id="${data.timestamp || Date.now()}">
+                        <button class="reaction-btn" data-emoji="❤️">❤️<span class="reaction-count">0</span></button>
+                        <button class="reaction-btn" data-emoji="😂">😂<span class="reaction-count">0</span></button>
+                        <button class="reaction-btn" data-emoji="🔥">🔥<span class="reaction-count">0</span></button>
+                        <button class="reaction-btn" data-emoji="👏">👏<span class="reaction-count">0</span></button>
+                    </div>
                 `;
 
-                this.elements.messages.appendChild(div);
-                this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+                // Add reaction handlers
+                const messageId = data.timestamp || Date.now();
+                div.querySelectorAll('.reaction-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const wasActive = btn.classList.toggle('active');
+                        const countEl = btn.querySelector('.reaction-count');
+                        let count = parseInt(countEl.textContent);
+                        
+                        if (wasActive) {
+                            count++;
+                        } else {
+                            count = Math.max(0, count - 1);
+                        }
+                        
+                        // Send reaction to server
+                        ChatClient.send({
+                            type: 'reaction',
+                            messageId: messageId,
+                            emoji: btn.dataset.emoji,
+                            count: count
+                        });
+                        
+                        // Update UI
+                        countEl.textContent = count;
+                        
+                        if (count > 0) {
+                            btn.classList.add('has-count');
+                        } else {
+                            btn.classList.remove('has-count');
+                        }
+                        
+                        // Show reactions container if any reactions exist
+                        const reactionsContainer = div.querySelector('.message-reactions');
+                        const hasAnyReactions = Array.from(reactionsContainer.querySelectorAll('.reaction-btn')).some(
+                            b => parseInt(b.querySelector('.reaction-count').textContent) > 0
+                        );
+                        reactionsContainer.classList.toggle('has-reactions', hasAnyReactions);
+                    });
+                });
 
-                if (shouldNotify && data.username !== this.currentUsername) {
+                this.allMessages.push({ element: div, text: data.text, username: data.username });
+                this.elements.messages.appendChild(div);
+                this.autoScrollToBottom();
+
+                if (shouldNotify && !isSelf) {
                     NotificationManager.incrementUnread();
-                    NotificationManager.showToast(data.username, data.text);
+                    NotificationManager.showToast(data.username, data.text.substring(0, 50) + (data.text.length > 50 ? '...' : ''));
                 }
+            },
+
+            formatMessageText(text) {
+                // Handle @mentions
+                text = text.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+                return text;
+            },
+
+            filterMessages(query) {
+                this.allMessages.forEach(msg => {
+                    const match = msg.text.toLowerCase().includes(query) || 
+                                 msg.username.toLowerCase().includes(query);
+                    msg.element.style.display = match ? 'flex' : 'none';
+                });
             },
 
             addRaceWidgetToUI(data) {
@@ -1536,7 +1786,7 @@
                 div.appendChild(widget);
                 
                 this.elements.messages.appendChild(div);
-                this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+                this.autoScrollToBottom();
                 
                 NotificationManager.incrementUnread();
                 NotificationManager.showToast('System', '🏆 New CPS Race!');
@@ -1547,34 +1797,82 @@
                 div.className = 'message system';
                 div.innerHTML = `<div class="message-bubble">${text}</div>`;
                 this.elements.messages.appendChild(div);
-                this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+                this.autoScrollToBottom();
             },
 
             updateOnlineCount(count) {
                 this.elements.onlineCount.textContent = `${count} online`;
             },
 
+            updateReaction(messageId, emoji, count) {
+                // Find the message reactions container with this messageId
+                const reactionsContainer = this.elements.messages.querySelector(
+                    `.message-reactions[data-message-id="${messageId}"]`
+                );
+                
+                if (!reactionsContainer) return;
+                
+                // Find the button for this emoji
+                const btn = reactionsContainer.querySelector(`[data-emoji="${emoji}"]`);
+                if (!btn) return;
+                
+                // Update count
+                const countEl = btn.querySelector('.reaction-count');
+                countEl.textContent = count;
+                
+                // Show/hide count
+                if (count > 0) {
+                    btn.classList.add('has-count');
+                } else {
+                    btn.classList.remove('has-count');
+                }
+                
+                // Show reactions container if any reactions exist
+                const hasAnyReactions = Array.from(reactionsContainer.querySelectorAll('.reaction-btn')).some(
+                    b => parseInt(b.querySelector('.reaction-count').textContent) > 0
+                );
+                reactionsContainer.classList.toggle('has-reactions', hasAnyReactions);
+            },
+
             formatTime(ts) {
                 const d = new Date(ts);
+                const now = new Date();
+                const diff = now - d;
+                
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+                
+                if (minutes < 1) return 'just now';
+                if (minutes < 60) return `${minutes}m ago`;
+                if (hours < 24) return `${hours}h ago`;
+                if (days < 7) return `${days}d ago`;
+                
                 const h = d.getHours() % 12 || 12;
                 const m = String(d.getMinutes()).padStart(2, '0');
                 const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
                 return `${h}:${m} ${ampm}`;
             },
 
+            autoScrollToBottom() {
+                setTimeout(() => {
+                    this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+                }, 0);
+            },
+
             createParticles(x, y) {
-                const colors = ['#667eea', '#764ba2', '#ffd700', '#ffffff'];
-                for (let i = 0; i < 8; i++) {
+                const colors = ['#667eea', '#764ba2', '#ffd700', '#ff6b6b', '#4ecdc4'];
+                for (let i = 0; i < 12; i++) {
                     const p = document.createElement('div');
                     p.className = 'particle';
-                    const size = Math.random() * 6 + 3;
+                    const size = Math.random() * 8 + 4;
                     p.style.width = p.style.height = `${size}px`;
                     p.style.background = colors[Math.floor(Math.random() * colors.length)];
                     p.style.left = `${x}px`;
                     p.style.top = `${y}px`;
                     
                     const angle = Math.random() * Math.PI * 2;
-                    const v = Math.random() * 60 + 30;
+                    const v = Math.random() * 80 + 40;
                     p.style.setProperty('--tx', `${Math.cos(angle) * v}px`);
                     p.style.setProperty('--ty', `${Math.sin(angle) * v}px`);
                     

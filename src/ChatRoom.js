@@ -209,21 +209,42 @@ export class ChatRoom {
             });
           }
         } else if (data.type === 'set_username') {
-          // Allow users to set custom username
-          const oldUsername = session.username;
-          session.username = data.username;
+           // Allow users to set custom username
+           const oldUsername = session.username;
+           session.username = data.username;
 
-          this.broadcast({
-            type: 'username_changed',
-            oldUsername: oldUsername,
-            newUsername: data.username,
-            timestamp: Date.now(),
-          });
+           this.broadcast({
+             type: 'username_changed',
+             oldUsername: oldUsername,
+             newUsername: data.username,
+             timestamp: Date.now(),
+           });
+         } else if (data.type === 'typing_start') {
+           // Broadcast that user is typing
+           this.broadcast({
+             type: 'user_typing',
+             username: username,
+           }, websocket);
+         } else if (data.type === 'typing_stop') {
+           // Broadcast that user stopped typing
+           this.broadcast({
+             type: 'user_typing_stop',
+             username: username,
+           }, websocket);
+         } else if (data.type === 'reaction') {
+           // Broadcast reaction to all clients
+           this.broadcast({
+             type: 'reaction',
+             messageId: data.messageId,
+             emoji: data.emoji,
+             username: username,
+             count: data.count,
+           });
+         }
+        } catch (err) {
+         console.error('Error processing message:', err);
         }
-      } catch (err) {
-        console.error('Error processing message:', err);
-      }
-    });
+        });
 
     // Handle disconnection
     websocket.addEventListener('close', () => {
