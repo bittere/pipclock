@@ -36,21 +36,6 @@
             --cps-text: #000000;
             --chat-bg: rgba(28, 28, 30, 0.85);
             --chat-border: rgba(255, 255, 255, 0.1);
-            --message-bg: rgba(255, 255, 255, 0.08);
-            --message-self-bg: #0a84ff;
-            --message-self-text: #ffffff;
-            --input-bg: rgba(255, 255, 255, 0.06);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        body {
-            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -348,6 +333,9 @@
             font-size: 15px;
             line-height: 1.5;
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            max-width: 100%;
             box-shadow: 0 2px 8px rgba(0,0,0,0.02);
             border-bottom-left-radius: 4px;
         }
@@ -544,6 +532,7 @@
             line-height: 1.5;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
             font-weight: 500;
@@ -941,6 +930,16 @@
 
                 ws.onopen = () => {
                     chatStatus.textContent = 'Connected';
+                    
+                    // Send saved username if exists
+                    const savedUsername = localStorage.getItem('pipclock_username');
+                    if (savedUsername) {
+                        ws.send(JSON.stringify({
+                            type: 'init',
+                            username: savedUsername
+                        }));
+                    }
+                    
                     setTimeout(() => {
                         chatStatus.style.display = 'none';
                     }, 2000);
@@ -978,6 +977,8 @@
             switch (data.type) {
                 case 'user_info':
                     currentUsername = data.username;
+                    // Save username to localStorage
+                    localStorage.setItem('pipclock_username', data.username);
                     break;
                 
                 case 'history':
@@ -1003,6 +1004,12 @@
                 
                 case 'user_count':
                     updateOnlineCount(data.count);
+                    break;
+                
+                case 'chat_cleared':
+                    // Clear UI messages
+                    chatMessages.innerHTML = '';
+                    addSystemMessage('Chat history cleared (1 hour)');
                     break;
             }
         }
