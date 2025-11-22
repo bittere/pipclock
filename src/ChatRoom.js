@@ -7,6 +7,9 @@ export class ChatRoom {
     this.messageHistory = []; // Store last 50 messages
     this.lastClearTime = Date.now();
     
+    // Interactive Race State
+    this.races = new Map(); // raceId -> { scores: Map(username -> score), startTime: number }
+    
     // Set up periodic message clearing (every hour)
     this.clearInterval = setInterval(() => {
       const now = Date.now();
@@ -72,32 +75,32 @@ export class ChatRoom {
     // If no username provided, generate random goofy alliterated username
     if (!username) {
       const alliterations = {
-          A: { adj: ['Awesome', 'Angry', 'Atomic', 'Ancient'], noun: ['Ants', 'Apples', 'Aliens', 'Assassins'] },
-          B: { adj: ['Bouncing', 'Brave', 'Blue', 'Big'], noun: ['Bears', 'Bananas', 'Birds', 'Badgers'] },
-          C: { adj: ['Cheeky', 'Crazy', 'Cool', 'Cosmic'], noun: ['Cats', 'Cookies', 'Cobras', 'Camels'] },
-          D: { adj: ['Dancing', 'Dizzy', 'Dark', 'Daring'], noun: ['Dogs', 'Ducks', 'Dragons', 'Dolphins'] },
-          E: { adj: ['Electric', 'Epic', 'Eager', 'Evil'], noun: ['Eagles', 'Elves', 'Elephants', 'Eggs'] },
-          F: { adj: ['Flying', 'Funny', 'Fast', 'Fuzzy'], noun: ['Foxes', 'Fish', 'Frogs', 'Falcons'] },
-          G: { adj: ['Goofy', 'Giant', 'Green', 'Ghostly'], noun: ['Ghosts', 'Goats', 'Goblins', 'Gorillas'] },
-          H: { adj: ['Happy', 'Hungry', 'Hyper', 'Heavy'], noun: ['Horses', 'Hippos', 'Heroes', 'Hamsters'] },
-          I: { adj: ['Invisible', 'Icy', 'Iron', 'Incredible'], noun: ['Iguanas', 'Insects', 'Impulses', 'Islands'] },
-          J: { adj: ['Jumping', 'Jolly', 'Jazz', 'Juicy'], noun: ['Jellyfish', 'Jaguars', 'Jokers', 'Jets'] },
-          K: { adj: ['Killer', 'Kind', 'King', 'Krazy'], noun: ['Kangaroos', 'Koalas', 'Kites', 'Knights'] },
-          L: { adj: ['Lucky', 'Lazy', 'Little', 'Loud'], noun: ['Lions', 'Lemurs', 'Lizards', 'Leopards'] },
-          M: { adj: ['Magic', 'Mad', 'Mega', 'Mystic'], noun: ['Monkeys', 'Mice', 'Moose', 'Monsters'] },
-          N: { adj: ['Neon', 'Nice', 'Nasty', 'Noisy'], noun: ['Ninjas', 'Narwhals', 'Newts', 'Nachos'] },
-          O: { adj: ['Orange', 'Odd', 'Old', 'Outer'], noun: ['Octopuses', 'Owls', 'Onions', 'Orcs'] },
-          P: { adj: ['Purple', 'Pink', 'Proud', 'Punk'], noun: ['Penguins', 'Pandas', 'Parrots', 'Pirates'] },
-          Q: { adj: ['Quiet', 'Quick', 'Queen', 'Quirky'], noun: ['Quails', 'Queens', 'Quokkas', 'Questions'] },
-          R: { adj: ['Running', 'Red', 'Rapid', 'Royal'], noun: ['Rabbits', 'Robots', 'Rats', 'Raccoons'] },
-          S: { adj: ['Spooky', 'Silly', 'Super', 'Sneaky'], noun: ['Snakes', 'Spiders', 'Sharks', 'Sweatpants'] },
-          T: { adj: ['Tiny', 'Tough', 'Turbo', 'Teeny'], noun: ['Tigers', 'Turtles', 'Toads', 'Tacos'] },
-          U: { adj: ['Undercover', 'Ultra', 'Unique', 'Urban'], noun: ['Unicorns', 'Umbrellas', 'Uncles', 'Urchins'] },
-          V: { adj: ['Violet', 'Vivid', 'Virtual', 'Vicious'], noun: ['Vampires', 'Vikings', 'Voices', 'Vehicles'] },
-          W: { adj: ['Wild', 'Wet', 'White', 'Wise'], noun: ['Wolves', 'Whales', 'Wizards', 'Worms'] },
+          A: { adj: ['Absurd', 'Awkward', 'Anxious', 'Angry'], noun: ['Armadillos', 'Avocados', 'Accordions', 'Anchovies'] },
+          B: { adj: ['Bamboozled', 'Beefy', 'Bonkers', 'Burpy'], noun: ['Burritos', 'Baboons', 'Bagpipes', 'Biscuits'] },
+          C: { adj: ['Confused', 'Chunky', 'Caffeinated', 'Clumsy'], noun: ['Cabbages', 'Chihuahuas', 'Coconuts', 'Cactus'] },
+          D: { adj: ['Derpy', 'Dramatic', 'Doughy', 'Drippy'], noun: ['Donuts', 'Dumplings', 'Doorknobs', 'Dingoes'] },
+          E: { adj: ['Existential', 'Exploding', 'Eccentric', 'Elastic'], noun: ['Eggplants', 'Earlobes', 'Elbows', 'Emus'] },
+          F: { adj: ['Flabby', 'Funky', 'Ferocious', 'Fluffy'], noun: ['Flamingos', 'Fajitas', 'Fungus', 'Ferrets'] },
+          G: { adj: ['Grumpy', 'Greasy', 'Giggly', 'Glitchy'], noun: ['Giraffes', 'Gherkins', 'Goblins', 'Grandmas'] },
+          H: { adj: ['Hysterical', 'Hairy', 'Hollow', 'Hypnotic'], noun: ['Hamsters', 'Hotdogs', 'Hedgehogs', 'Hipsters'] },
+          I: { adj: ['Irrational', 'Itchy', 'Inverted', 'Invisible'], noun: ['Iguanas', 'Icebergs', 'Insects', 'Impostors'] },
+          J: { adj: ['Jiggly', 'Jazzy', 'Jittery', 'Judgmental'], noun: ['Jellybeans', 'Jackrabbits', 'Jalapenos', 'Jumpsuits'] },
+          K: { adj: ['Kooky', 'Knobbly', 'Knotty', 'Klutzy'], noun: ['Kangaroos', 'Kazoos', 'Kebabs', 'Kittens'] },
+          L: { adj: ['Lumpy', 'Loopy', 'Lazy', 'Long'], noun: ['Llamas', 'Lobsters', 'Loaves', 'Lemons'] },
+          M: { adj: ['Mushy', 'Manic', 'Moist', 'Melodramatic'], noun: ['Muffins', 'Meatballs', 'Manatees', 'Mustaches'] },
+          N: { adj: ['Nervous', 'Noodle', 'Naughty', 'Noisy'], noun: ['Narwhals', 'Nuggets', 'Ninjas', 'Noses'] },
+          O: { adj: ['Oddball', 'Oily', 'Overcooked', 'Obnoxious'], noun: ['Ostriches', 'Onions', 'Omelets', 'Octopuses'] },
+          P: { adj: ['Pudgy', 'Panic', 'Peculiar', 'Potato'], noun: ['Pickles', 'Pigeons', 'Pancakes', 'Poodles'] },
+          Q: { adj: ['Queasy', 'Quirky', 'Questionable', 'Quivering'], noun: ['Quokkas', 'Quesadillas', 'Quacks', 'Queens'] },
+          R: { adj: ['Round', 'Rusty', 'Rebellious', 'Roasted'], noun: ['Raccoons', 'Ravioli', 'Roosters', 'Radishes'] },
+          S: { adj: ['Soggy', 'Spicy', 'Squeaky', 'Suspicious'], noun: ['Sausages', 'Sloths', 'Squirrels', 'Sandwiches'] },
+          T: { adj: ['Tubby', 'Twitchy', 'Tasty', 'Terrified'], noun: ['Toasters', 'Turnips', 'Tacos', 'Turkeys'] },
+          U: { adj: ['Unhinged', 'Unwashed', 'Useless', 'Unlucky'], noun: ['Unicorns', 'Underwear', 'Utensils', 'Uncles'] },
+          V: { adj: ['Violent', 'Vague', 'Vengeful', 'Vegetarian'], noun: ['Vultures', 'Vacuums', 'Vegetables', 'Velociraptors'] },
+          W: { adj: ['Wobbly', 'Wiggly', 'Whiny', 'Wrinkly'], noun: ['Walruses', 'Waffles', 'Weasels', 'Wombats'] },
           X: { adj: ['Xtra', 'Xenon', 'Xeric'], noun: ['Xylophones', 'X-rays'] },
-          Y: { adj: ['Yellow', 'Young', 'Yummy'], noun: ['Yaks', 'Yoyos', 'Yetis'] },
-          Z: { adj: ['Zigzag', 'Zany', 'Zooming'], noun: ['Zebras', 'Zombies', 'Zones'] }
+          Y: { adj: ['Yelling', 'Yeasty', 'Yawning', 'Yucky'], noun: ['Yetis', 'Yogurts', 'Yams', 'Yoyos'] },
+          Z: { adj: ['Zesty', 'Zonked', 'Zigzag', 'Zealous'], noun: ['Zombies', 'Zucchinis', 'Zebras', 'Zippers'] }
       };
 
       const letters = Object.keys(alliterations);
@@ -164,6 +167,47 @@ export class ChatRoom {
 
           // Broadcast to all users
           this.broadcast(message);
+        } else if (data.type === 'init_race') {
+          // Create a new race
+          const raceId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+          
+          this.races.set(raceId, {
+            scores: new Map(),
+            startTime: Date.now()
+          });
+          
+          // Broadcast race widget to all
+          this.broadcast({
+            type: 'interactive_race',
+            raceId: raceId,
+            timestamp: Date.now()
+          });
+          
+          // Auto-cleanup race after 2 minutes
+          setTimeout(() => {
+            this.races.delete(raceId);
+          }, 120000);
+          
+        } else if (data.type === 'submit_score') {
+          // Handle score submission
+          const { raceId, score } = data;
+          const race = this.races.get(raceId);
+          
+          if (race) {
+            race.scores.set(username, score);
+            
+            // Calculate leaderboard
+            const leaderboard = Array.from(race.scores.entries())
+              .map(([user, s]) => ({ username: user, score: s }))
+              .sort((a, b) => b.score - a.score);
+              
+            // Broadcast update
+            this.broadcast({
+              type: 'update_leaderboard',
+              raceId: raceId,
+              leaderboard: leaderboard
+            });
+          }
         } else if (data.type === 'set_username') {
           // Allow users to set custom username
           const oldUsername = session.username;
