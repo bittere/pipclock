@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Picture-in-Picture Clock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+        }
+
+        .clock {
+            font-size: 120px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 40px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Hidden video element for PiP */
+        #pipVideo {
+            display: none;
+        }
+
+        /* Canvas for rendering clock to video */
+        #clockCanvas {
+            display: none;
+            width: 280px;
+            height: 120px;
+        }
+    </style>
+</head>
+<body>
+    <div class="clock" id="clock">00:00</div>
+    <button id="pipButton">Enter Picture-in-Picture</button>
+
+    <canvas id="clockCanvas" width="840" height="360"></canvas>
+    <video id="pipVideo" autoplay muted></video>
+
+    <script>
+        const clockDisplay = document.getElementById('clock');
+        const pipButton = document.getElementById('pipButton');
+        const canvas = document.getElementById('clockCanvas');
+        const video = document.getElementById('pipVideo');
+        const ctx = canvas.getContext('2d');
+
+        let animationId = null;
+
+        // Update clock display
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = now.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            
+            // Convert to 12-hour format
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 should be 12
+            
+            const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            clockDisplay.textContent = timeString;
+            
+            return timeString;
+        }
+
+        // Draw clock on canvas for PiP
+        function drawClockOnCanvas() {
+            // Scale for high DPI
+            const scale = 3;
+            
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 240px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const timeString = updateClock();
+            ctx.fillText(timeString, canvas.width / 2, canvas.height / 2);
+        }
+
+        // Render loop for canvas
+        function renderLoop() {
+            drawClockOnCanvas();
+            animationId = requestAnimationFrame(renderLoop);
+        }
+
+        // Enter Picture-in-Picture mode
+        async function enterPiP() {
+            try {
+                // Start rendering clock to canvas
+                const stream = canvas.captureStream(30); // 30 FPS for smoother updates
+                video.srcObject = stream;
+                
+                // Start animation loop
+                renderLoop();
+                
+                // Wait for video to be ready
+                await new Promise((resolve) => {
+                    if (video.readyState >= 2) {
+                        resolve();
+                    } else {
+                        video.addEventListener('loadeddata', resolve, { once: true });
+                    }
+                });
+                
+                // Ensure video is playing
+                await video.play();
+                
+                // Small delay to ensure video is actually playing
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Enter PiP mode
+                await video.requestPictureInPicture();
+                pipButton.textContent = 'Exit Picture-in-Picture';
+            } catch (error) {
+                console.error('Error entering PiP:', error);
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+                alert('Picture-in-Picture failed: ' + error.message);
+            }
+        }
+
+        // Exit Picture-in-Picture mode
+        async function exitPiP() {
+            try {
+                await document.exitPictureInPicture();
+            } catch (error) {
+                console.error('Error exiting PiP:', error);
+            }
+        }
+
+        // Handle PiP button click
+        pipButton.addEventListener('click', async () => {
+            if (document.pictureInPictureElement) {
+                await exitPiP();
+            } else {
+                await enterPiP();
+            }
+        });
+
+        // Handle PiP state changes
+        video.addEventListener('enterpictureinpicture', () => {
+            pipButton.textContent = 'Exit Picture-in-Picture';
+        });
+
+        video.addEventListener('leavepictureinpicture', () => {
+            pipButton.textContent = 'Enter Picture-in-Picture';
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        });
+
+        // Check if PiP is supported
+        if (!document.pictureInPictureEnabled) {
+            pipButton.disabled = true;
+            pipButton.textContent = 'PiP Not Supported';
+        }
+
+        // Update clock every second
+        updateClock();
+        setInterval(updateClock, 1000);
+    </script>
+</body>
+</html>
