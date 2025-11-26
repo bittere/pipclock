@@ -15,10 +15,12 @@ export interface RaceEvent {
   leaderboard?: Array<{ username: string; score: number }>
 }
 
-export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameReceived?: (username: string) => void) {
+export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameReceived?: (username: string) => void, onNewMessage?: () => void, onRaceStarted?: () => void) {
   const wsRef = useRef<WebSocket | null>(null)
   const onRaceEventRef = useRef(onRaceEvent)
   const onUsernameReceivedRef = useRef(onUsernameReceived)
+  const onNewMessageRef = useRef(onNewMessage)
+  const onRaceStartedRef = useRef(onRaceStarted)
   const initializingRef = useRef(false)
   const [isConnected, setIsConnected] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -30,7 +32,9 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
     // Update the refs when callbacks change
     onRaceEventRef.current = onRaceEvent
     onUsernameReceivedRef.current = onUsernameReceived
-  }, [onRaceEvent, onUsernameReceived])
+    onNewMessageRef.current = onNewMessage
+    onRaceStartedRef.current = onRaceStarted
+  }, [onRaceEvent, onUsernameReceived, onNewMessage, onRaceStarted])
 
   useEffect(() => {
     // Prevent double initialization in Strict Mode
@@ -72,6 +76,7 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
             timestamp: data.timestamp || Date.now()
           }
           setMessages(prev => [...(Array.isArray(prev) ? prev : []), message])
+          onNewMessageRef.current?.()
         } else if (data.type === 'user_joined' || data.type === 'user_left' || data.type === 'user_count') {
           setOnlineCount(data.userCount || 0)
         } else if (data.type === 'history') {
@@ -107,6 +112,7 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
             type: 'race_started',
             raceId: data.raceId,
           })
+          onRaceStartedRef.current?.()
         } else if (data.type === 'leaderboard_update') {
           onRaceEventRef.current?.({
             type: 'leaderboard_update',

@@ -11,18 +11,33 @@ function App() {
   const [chatOpen, setChatOpen] = useState(false)
   const [cps, setCps] = useState(0)
   const [isRaceActive, setIsRaceActive] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [hasRaceNotification, setHasRaceNotification] = useState(false)
   const clickCountRef = useRef(0)
   const cpsIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const raceRef = useRef<any>(null)
+  const confettiRef = useRef<any>(null)
+  const pipAnimationRef = useRef<number | null>(null)
+  const unreadCountRef = useRef(0)
+  const raceActiveRef = useRef(false)
+  const frameCountRef = useRef(0)
+  const hasRaceNotificationRef = useRef(false)
 
   // Initialize chat at app level (only once per app)
   const chatContext = useChat(
     useCallback((event: RaceEvent) => {
-      if (event.type === 'race_started' && raceRef.current) {
-        raceRef.current.startRace(event.raceId!)
-      } else if (event.type === 'leaderboard_update' && raceRef.current) {
+      if (event.type === 'leaderboard_update' && raceRef.current) {
         raceRef.current.updateLeaderboard(event.leaderboard || [], event.raceId)
       }
+    }, []),
+    undefined,
+    useCallback(() => {
+      if (!chatOpen) {
+        setUnreadCount(prev => prev + 1)
+      }
+    }, [chatOpen]),
+    useCallback(() => {
+      setHasRaceNotification(true)
     }, [])
   )
 
@@ -36,6 +51,26 @@ function App() {
     setIsDark(theme === 'dark')
     updateTheme(theme === 'dark')
   }, [])
+
+  // Keep ref in sync with unread count
+  useEffect(() => {
+    unreadCountRef.current = unreadCount
+  }, [unreadCount])
+
+  // Keep ref in sync with race active state
+  useEffect(() => {
+    raceActiveRef.current = isRaceActive
+    if (isRaceActive) {
+      setHasRaceNotification(true)
+    } else {
+      setHasRaceNotification(false)
+    }
+  }, [isRaceActive])
+
+  // Keep ref in sync with race notification
+  useEffect(() => {
+    hasRaceNotificationRef.current = hasRaceNotification
+  }, [hasRaceNotification])
 
   const updateTheme = (dark: boolean) => {
     if (dark) {
@@ -131,10 +166,10 @@ function App() {
           }}
         />
       )}
-      <Confetti />
+      <Confetti ref={confettiRef} />
       <Toast />
       
-      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} chatContext={chatContext} setRaceRef={setRaceRef} onRaceStatusChange={setIsRaceActive} />
+      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} chatContext={chatContext} setRaceRef={setRaceRef} onRaceStatusChange={setIsRaceActive} confettiRef={confettiRef} />
       
       <div 
         className="flex flex-col items-center justify-center h-full transition-all"
@@ -149,6 +184,142 @@ function App() {
         <div className="flex gap-4 items-center">
           <button
             id="pipButton"
+            onClick={async () => {
+              const canvas = document.getElementById('clockCanvas') as HTMLCanvasElement
+              const video = document.getElementById('pipVideo') as HTMLVideoElement
+              if (!canvas || !video) return
+              
+              try {
+                // Wait for all fonts to load
+                await document.fonts.ready
+                
+                // Set canvas size
+                canvas.width = 1280
+                canvas.height = 720
+                
+                let lastTime = ''
+                let lastBgColor = ''
+                let lastTextColor = ''
+                let lastUnreadCount = unreadCountRef.current
+                
+                // Function to draw the clock
+                const drawClock = () => {
+                  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+                  if (!ctx) return
+                  
+                  const now = new Date()
+                  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+                  
+                  // Read current theme colors from CSS variables
+                  const styles = getComputedStyle(document.documentElement)
+                  const bgColor = styles.getPropertyValue('--bg-color').trim()
+                  const textColor = styles.getPropertyValue('--text-color').trim()
+                  
+                  // Redraw if time changed, colors changed, or unread count changed
+                  if (time === lastTime && bgColor === lastBgColor && textColor === lastTextColor && unreadCountRef.current === lastUnreadCount) return
+                  lastTime = time
+                  lastBgColor = bgColor
+                  lastTextColor = textColor
+                  lastUnreadCount = unreadCountRef.current
+                  
+                  // Clear and fill background
+                  ctx.fillStyle = bgColor
+                  ctx.fillRect(0, 0, canvas.width, canvas.height)
+                  
+                  // Draw the time
+                  ctx.fillStyle = textColor
+                  ctx.font = '700 400px "Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+                  ctx.textAlign = 'center'
+                  ctx.textBaseline = 'middle'
+                  ctx.fillText(time, canvas.width / 2, canvas.height / 2)
+                  
+                  // Draw notification badge if there are unread messages or race notification
+                  if (unreadCountRef.current > 0 || hasRaceNotificationRef.current) {
+                    const badgeX = canvas.width - 120
+                    const badgeY = 100
+                    
+                    if (hasRaceNotificationRef.current && (raceActiveRef.current || unreadCountRef.current === 0)) {
+                      // Race notification - animated trophy/star badge
+                      const pulseScale = 1 + Math.sin(frameCountRef.current * 0.1) * 0.1
+                      const badgeRadius = 70 * pulseScale
+                      
+                      // Draw outer glow
+                      ctx.fillStyle = 'rgba(255, 193, 7, 0.3)'
+                      ctx.beginPath()
+                      ctx.arc(badgeX, badgeY, badgeRadius + 20, 0, Math.PI * 2)
+                      ctx.fill()
+                      
+                      // Draw main badge circle
+                      ctx.fillStyle = '#ffc107'
+                      ctx.beginPath()
+                      ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
+                      ctx.fill()
+                      
+                      // Draw trophy icon
+                      ctx.fillStyle = '#ffffff'
+                      ctx.font = '700 100px Arial'
+                      ctx.textAlign = 'center'
+                      ctx.textBaseline = 'middle'
+                      ctx.fillText('🏆', badgeX, badgeY)
+                    } else {
+                      // Message notification - pulsing red badge
+                      const pulseScale = 1 + Math.sin(frameCountRef.current * 0.08) * 0.15
+                      const badgeRadius = 60 * pulseScale
+                      
+                      // Draw pulsing glow
+                      const glowAlpha = 0.3 + Math.sin(frameCountRef.current * 0.08) * 0.2
+                      ctx.fillStyle = `rgba(255, 59, 48, ${glowAlpha})`
+                      ctx.beginPath()
+                      ctx.arc(badgeX, badgeY, badgeRadius + 15, 0, Math.PI * 2)
+                      ctx.fill()
+                      
+                      // Draw main badge circle
+                      ctx.fillStyle = '#ff3b30'
+                      ctx.beginPath()
+                      ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
+                      ctx.fill()
+                      
+                      // Draw notification count
+                      ctx.fillStyle = '#ffffff'
+                      ctx.font = '700 80px "Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+                      ctx.textAlign = 'center'
+                      ctx.textBaseline = 'middle'
+                      const badgeText = unreadCountRef.current > 9 ? '9+' : unreadCountRef.current.toString()
+                      ctx.fillText(badgeText, badgeX, badgeY)
+                    }
+                  }
+                }
+                
+                // Start continuous animation first
+                const animate = () => {
+                  frameCountRef.current++
+                  drawClock()
+                  pipAnimationRef.current = requestAnimationFrame(animate)
+                }
+                if (pipAnimationRef.current) {
+                  cancelAnimationFrame(pipAnimationRef.current)
+                }
+                pipAnimationRef.current = requestAnimationFrame(animate)
+                
+                // Create stream from canvas after animation is running
+                const stream = canvas.captureStream(30)
+                video.srcObject = stream
+                
+                // Play the video to ensure stream flows
+                video.play().catch(() => {
+                  // Ignore play errors, video doesn't need to actually play
+                })
+                
+                // Wait for stream to have frames
+                await new Promise<void>((resolve) => {
+                  setTimeout(resolve, 200)
+                })
+                
+                await video.requestPictureInPicture()
+              } catch (err) {
+                console.error('PiP failed:', err)
+              }
+            }}
             className="flex items-center justify-center gap-2.5"
             style={{
               padding: '16px 36px',
@@ -229,7 +400,13 @@ function App() {
       </div>
 
       <button
-        onClick={() => setChatOpen(!chatOpen)}
+        onClick={() => {
+          setChatOpen(!chatOpen)
+          if (!chatOpen) {
+            setUnreadCount(0)
+            setHasRaceNotification(false)
+          }
+        }}
         id="chatToggle"
         style={{
           position: 'fixed',
@@ -263,11 +440,19 @@ function App() {
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
         </svg>
-        <span id="notificationBadge" className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
+        {hasRaceNotification ? (
+          <span id="notificationBadge" className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-900 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center text-lg" style={{ animation: 'pulse 1s infinite' }}>
+            🏆
+          </span>
+        ) : unreadCount > 0 ? (
+          <span id="notificationBadge" className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center" style={{ animation: 'pulse 2s infinite' }}>
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        ) : null}
       </button>
 
-      <canvas id="clockCanvas" width="1280" height="720" className="fixed -top-[9999px] -left-[9999px]"></canvas>
-      <video id="pipVideo" autoPlay muted className="hidden"></video>
+      <canvas id="clockCanvas" width="1280" height="720" style={{ position: 'fixed', top: '-9999px', left: '-9999px' }}></canvas>
+      <video id="pipVideo" autoPlay muted style={{ display: 'none' }}></video>
     </div>
   )
 }

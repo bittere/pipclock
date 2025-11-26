@@ -4,7 +4,6 @@ import RaceLeaderboard from './RaceLeaderboard'
 import InlineRaceLeaderboard from './InlineRaceLeaderboard'
 import EnhancedRaceWidget from './EnhancedRaceWidget'
 import ClickParticle from './ClickParticle'
-import Confetti from './Confetti'
 import '../styles/animations.css'
 
 interface ChatPanelProps {
@@ -13,9 +12,10 @@ interface ChatPanelProps {
   chatContext: any
   setRaceRef: (race: any) => void
   onRaceStatusChange: (isActive: boolean) => void
+  confettiRef: React.RefObject<any>
 }
 
-export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, onRaceStatusChange }: ChatPanelProps) {
+export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, onRaceStatusChange, confettiRef }: ChatPanelProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -29,7 +29,6 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
   const raceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
   const raceIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const confettiRef = useRef<any>(null)
 
   const { isConnected, messages = [], onlineCount, sendMessage, sendCommand, clearChat, error, username } = chatContext
   
@@ -156,7 +155,6 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
     
     setActiveRaces(prev => {
       const updated = new Map(prev).set(raceId, { clickCount: 1, progress: 0, raceStartTime })
-      onRaceStatusChange(updated.size > 0)
       return updated
     })
     
@@ -206,7 +204,6 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
       setActiveRaces(prev => {
         const updated = new Map(prev)
         updated.delete(raceId)
-        onRaceStatusChange(updated.size > 0)
         return updated
       })
 
@@ -661,8 +658,6 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
         onClose={() => setRaceActive(false)}
         currentUsername={username}
       />
-      
-      <Confetti ref={confettiRef} />
     </div>
   )
 }

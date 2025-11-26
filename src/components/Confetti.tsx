@@ -179,11 +179,13 @@ const Confetti = forwardRef<ConfettiHandle>((props, ref) => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-[999]"
+      className="fixed inset-0 pointer-events-none z-[9999]"
       style={{
         position: 'fixed',
         top: 0,
         left: 0,
+        right: 0,
+        bottom: 0,
         display: 'block',
       }}
     />
