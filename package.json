@@ -4,8 +4,8 @@
   "description": "Picture-in-Picture Clock with Real-Time Chat",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "dev:vite": "vite dev",
+    "dev": "vite dev",
+    "dev:wrangler": "wrangler dev",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy"
@@ -14,8 +14,18 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "vite": "^7.2.4",
     "@cloudflare/vite-plugin": "^1.15.2",
+    "@tailwindcss/vite": "^4.1.17",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4",
     "wrangler": "^4.50.0"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   }
 }

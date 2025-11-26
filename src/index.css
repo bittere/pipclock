@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+:root {
+  --bg-color: #fafbfc;
+  --text-color: #3a3a3f;
+  --text-secondary: #8a8a90;
+  --button-bg: #4a4a54;
+  --button-text: #ffffff;
+  --button-hover: #5a5a68;
+  --panel-bg: #f8f9fb;
+  --cps-bg: rgba(50, 50, 60, 0.8);
+  --cps-text: #ffffff;
+  --chat-bg: rgba(248, 249, 251, 0.98);
+  --chat-border: rgba(100, 100, 120, 0.12);
+  --message-bg: #eef0f6;
+  --message-self-bg: #5b9cff;
+  --message-self-text: #ffffff;
+  --input-bg: #eef0f6;
+  --accent: #5b9cff;
+}
+
+[data-theme="dark"] {
+  --bg-color: #16161a;
+  --text-color: #e0e0e6;
+  --text-secondary: #a0a0a8;
+  --button-bg: #d0d0d6;
+  --button-text: #1a1a1f;
+  --button-hover: #c0c0c8;
+  --panel-bg: #1f1f27;
+  --cps-bg: rgba(224, 224, 230, 0.85);
+  --cps-text: #16161a;
+  --chat-bg: rgba(31, 31, 39, 0.98);
+  --chat-border: rgba(150, 150, 170, 0.12);
+  --message-bg: #2a2a35;
+  --input-bg: #2a2a35;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
+  transition: background 0.3s ease, color 0.3s ease;
+  font-size: 16px;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px) rotate(-2deg); }
+  20%, 40%, 60%, 80% { transform: translateX(4px) rotate(2deg); }
+}
+
+@keyframes particle-fade {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+
+@keyframes ripple-expand {
+  0% { width: 10px; height: 10px; opacity: 0.5; }
+  100% { width: 200px; height: 200px; opacity: 0; }
+}

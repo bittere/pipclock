@@ -1,4 +1,5 @@
-import { ChatRoom } from './ChatRoom.js';
+import { DurableObject } from 'cloudflare:workers';
+import { ChatRoom } from './ChatRoom';
 
 export { ChatRoom };
 
@@ -15,9 +16,8 @@ const handler: ExportedHandler<any> = {
       return room.fetch(request);
     }
 
-    // For all other routes, serve the index.html (SPA fallback)
-    // This lets the frontend router handle navigation
-    return env.ASSETS.fetch(request);
+    // Dev server handles everything else
+    return new Response('Not Found', { status: 404 });
   },
 };
 

@@ -1,3 +1,5 @@
+import { DurableObject } from 'cloudflare:workers';
+
 // Durable Object for managing chat room state and WebSocket connections
 export class ChatRoom extends DurableObject {
   sessions: Map<WebSocket, any> = new Map();
@@ -5,6 +7,9 @@ export class ChatRoom extends DurableObject {
   lastClearTime: number = Date.now();
   races: Map<string, any> = new Map();
   clearInterval: any;
+  inactivityTimeout: number = 60 * 1000; // 1 minute
+  inactivityCheckInterval: any;
+  heartbeatInterval: any;
 
   constructor(state: DurableObjectState, env: any) {
     super(state, env);
@@ -25,6 +30,65 @@ export class ChatRoom extends DurableObject {
         });
       }
     }, 60 * 60 * 1000); // Check every hour
+
+    // Set up periodic inactivity check (every 15 seconds)
+    this.inactivityCheckInterval = setInterval(() => {
+      this.checkInactiveClients();
+    }, 15 * 1000);
+
+    // Set up heartbeat to keep connections alive (every 20 seconds)
+    this.heartbeatInterval = setInterval(() => {
+      this.sendHeartbeat();
+    }, 20 * 1000);
+  }
+
+  sendHeartbeat() {
+    const deadConnections: WebSocket[] = [];
+    
+    for (const [ws, session] of this.sessions) {
+      try {
+        ws.send(JSON.stringify({ type: 'ping' }));
+      } catch (err) {
+        // Connection is dead, mark for removal
+        deadConnections.push(ws);
+      }
+    }
+    
+    // Remove dead connections and broadcast updated count
+    for (const ws of deadConnections) {
+      const session = this.sessions.get(ws);
+      this.sessions.delete(ws);
+      
+      if (session) {
+        this.broadcast({
+          type: 'user_left',
+          username: session.username,
+          timestamp: Date.now(),
+          userCount: this.sessions.size,
+        });
+      }
+    }
+  }
+
+  checkInactiveClients() {
+    const now = Date.now();
+    const inactiveWebSockets: WebSocket[] = [];
+
+    for (const [ws, session] of this.sessions) {
+      if (now - session.lastActivityTime > this.inactivityTimeout) {
+        inactiveWebSockets.push(ws);
+      }
+    }
+
+    // Close inactive connections
+    for (const ws of inactiveWebSockets) {
+      try {
+        ws.close(1000, 'Inactivity timeout');
+      } catch (err) {
+        // Connection already closed
+      }
+      this.sessions.delete(ws);
+    }
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -193,6 +257,7 @@ export class ChatRoom extends DurableObject {
       websocket,
       username,
       joinedAt: Date.now(),
+      lastActivityTime: Date.now(),
     };
 
     this.sessions.set(websocket, session);
@@ -213,31 +278,30 @@ export class ChatRoom extends DurableObject {
       })
     );
 
-    // Notify others of new user
-    this.broadcast(
-      {
-        type: 'user_joined',
-        username: username,
-        timestamp: Date.now(),
-        userCount: this.sessions.size,
-      },
-      websocket
-    );
-
-    // Send user count to the new user
-    websocket.send(
-      JSON.stringify({
-        type: 'user_count',
-        count: this.sessions.size,
-      })
-    );
+    // Broadcast to all (including new user) that someone joined
+    this.broadcast({
+      type: 'user_joined',
+      username: username,
+      timestamp: Date.now(),
+      userCount: this.sessions.size,
+    });
 
     // Handle incoming messages
     websocket.addEventListener('message', async (msg: any) => {
       try {
+        // Update activity time
+        session.lastActivityTime = Date.now();
+
         const data = JSON.parse(msg.data);
 
-        if (data.type === 'message') {
+        if (data.type === 'pong') {
+          // Client responded to ping, connection is alive
+          return;
+        } else if (data.type === 'disconnect') {
+          // Client is explicitly disconnecting
+          websocket.close(1000, 'Client disconnect');
+          return;
+        } else if (data.type === 'message') {
           const message = {
             type: 'message',
             username: username,
