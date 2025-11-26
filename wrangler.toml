@@ -2,6 +2,9 @@ name = "pipclock"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 
+[site]
+bucket = "dist/client"
+
 [env.production]
 routes = [
   { pattern = "pipclock.bittere.workers.dev", zone_name = "workers.dev" }

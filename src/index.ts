@@ -15,8 +15,9 @@ const handler: ExportedHandler<any> = {
       return room.fetch(request);
     }
 
-    // Let Vite handle frontend routes (404 will be caught by Vite)
-    return new Response('Not Found', { status: 404 });
+    // For all other routes, serve the index.html (SPA fallback)
+    // This lets the frontend router handle navigation
+    return env.ASSETS.fetch(request);
   },
 };
 
