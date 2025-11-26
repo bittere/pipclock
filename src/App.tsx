@@ -196,21 +196,28 @@ function App() {
           <button
             id="pipButton"
             onClick={async () => {
-              if (isPipActive) {
-                // Close PiP
-                try {
-                  if (document.pictureInPictureElement) {
-                    await document.exitPictureInPicture()
-                  }
-                  // Cancel animation
-                  if (pipAnimationRef.current) {
-                    cancelAnimationFrame(pipAnimationRef.current)
-                    pipAnimationRef.current = null
-                  }
-                  setIsPipActive(false)
-                } catch (err) {
-                  console.error('Failed to exit PiP:', err)
-                }
+               if (isPipActive) {
+                 // Close PiP
+                 try {
+                   if (document.pictureInPictureElement) {
+                     await document.exitPictureInPicture()
+                   }
+                   // Cancel animation
+                   if (pipAnimationRef.current) {
+                     cancelAnimationFrame(pipAnimationRef.current)
+                     pipAnimationRef.current = null
+                   }
+                   // Stop video stream
+                   const video = document.getElementById('pipVideo') as HTMLVideoElement
+                   if (video && video.srcObject) {
+                     const stream = video.srcObject as MediaStream
+                     stream.getTracks().forEach(track => track.stop())
+                     video.srcObject = null
+                   }
+                   setIsPipActive(false)
+                 } catch (err) {
+                   console.error('Failed to exit PiP:', err)
+                 }
               } else {
                 // Open PiP
                 const canvas = document.getElementById('clockCanvas') as HTMLCanvasElement
@@ -218,41 +225,43 @@ function App() {
                 if (!canvas || !video) return
                 
                 try {
-                  // Wait for all fonts to load
-                  await document.fonts.ready
-                  
-                  // Set canvas size
-                  canvas.width = 1280
-                  canvas.height = 720
+                   // Wait for all fonts to load
+                   await document.fonts.ready
+                   
+                   // Set canvas size (this automatically clears it)
+                   canvas.width = 1280
+                   canvas.height = 720
                   
                   let lastTime = ''
-                  let lastBgColor = ''
-                  let lastTextColor = ''
-                  let lastUnreadCount = unreadCountRef.current
-                  
-                  // Function to draw the clock
-                  const drawClock = () => {
-                    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-                    if (!ctx) return
-                    
-                    const now = new Date()
-                    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-                    
-                    // Read current theme colors from CSS variables
-                    const styles = getComputedStyle(document.documentElement)
-                    const bgColor = styles.getPropertyValue('--bg-color').trim()
-                    const textColor = styles.getPropertyValue('--text-color').trim()
-                    
-                    // Redraw if time changed, colors changed, or unread count changed
-                    if (time === lastTime && bgColor === lastBgColor && textColor === lastTextColor && unreadCountRef.current === lastUnreadCount) return
-                    lastTime = time
-                    lastBgColor = bgColor
-                    lastTextColor = textColor
-                    lastUnreadCount = unreadCountRef.current
-                    
-                    // Clear and fill background
-                    ctx.fillStyle = bgColor
-                    ctx.fillRect(0, 0, canvas.width, canvas.height)
+                   let lastBgColor = ''
+                   let lastTextColor = ''
+                   let lastUnreadCount = unreadCountRef.current
+                   let firstFrame = true
+                   
+                   // Function to draw the clock
+                   const drawClock = () => {
+                     const ctx = canvas.getContext('2d')
+                     if (!ctx) return
+                     
+                     const now = new Date()
+                     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+                     
+                     // Read current theme colors from CSS variables
+                     const styles = getComputedStyle(document.documentElement)
+                     const bgColor = styles.getPropertyValue('--bg-color').trim()
+                     const textColor = styles.getPropertyValue('--text-color').trim()
+                     
+                     // Always redraw on first frame, or if time changed, colors changed, or unread count changed
+                     if (!firstFrame && time === lastTime && bgColor === lastBgColor && textColor === lastTextColor && unreadCountRef.current === lastUnreadCount) return
+                     firstFrame = false
+                     lastTime = time
+                     lastBgColor = bgColor
+                     lastTextColor = textColor
+                     lastUnreadCount = unreadCountRef.current
+                     
+                     // Clear and fill background
+                     ctx.fillStyle = bgColor
+                     ctx.fillRect(0, 0, canvas.width, canvas.height)
                     
                     // Draw the time
                     ctx.fillStyle = textColor
@@ -318,7 +327,20 @@ function App() {
                     }
                   }
                   
-                  // Start continuous animation first
+                  // Stop any existing stream first
+                  if (video.srcObject) {
+                    const oldStream = video.srcObject as MediaStream
+                    oldStream.getTracks().forEach(track => track.stop())
+                  }
+                  
+                  // Draw initial frame synchronously
+                  drawClock()
+                  
+                  // Create stream from canvas BEFORE animation starts
+                  const stream = canvas.captureStream(30)
+                  video.srcObject = stream
+                  
+                  // Start continuous animation after stream is created
                   const animate = () => {
                     frameCountRef.current++
                     drawClock()
@@ -329,12 +351,8 @@ function App() {
                   }
                   pipAnimationRef.current = requestAnimationFrame(animate)
                   
-                  // Create stream from canvas after animation is running
-                  const stream = canvas.captureStream(30)
-                  video.srcObject = stream
-                  
                   // Play the video to ensure stream flows
-                  video.play().catch(() => {
+                  await video.play().catch(() => {
                     // Ignore play errors, video doesn't need to actually play
                   })
                   
