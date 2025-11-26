@@ -13,6 +13,7 @@ function App() {
   const [isRaceActive, setIsRaceActive] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [hasRaceNotification, setHasRaceNotification] = useState(false)
+  const [isPipActive, setIsPipActive] = useState(false)
   const clickCountRef = useRef(0)
   const cpsIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const raceRef = useRef<any>(null)
@@ -134,10 +135,20 @@ function App() {
       clickCountRef.current++
     }
 
+    const handlePipExit = () => {
+      setIsPipActive(false)
+      if (pipAnimationRef.current) {
+        cancelAnimationFrame(pipAnimationRef.current)
+        pipAnimationRef.current = null
+      }
+    }
+
     document.addEventListener('click', handleClick)
+    document.addEventListener('leavepictureinpicture', handlePipExit)
 
     return () => {
       document.removeEventListener('click', handleClick)
+      document.removeEventListener('leavepictureinpicture', handlePipExit)
       if (cpsIntervalRef.current) {
         clearInterval(cpsIntervalRef.current)
       }
@@ -185,139 +196,158 @@ function App() {
           <button
             id="pipButton"
             onClick={async () => {
-              const canvas = document.getElementById('clockCanvas') as HTMLCanvasElement
-              const video = document.getElementById('pipVideo') as HTMLVideoElement
-              if (!canvas || !video) return
-              
-              try {
-                // Wait for all fonts to load
-                await document.fonts.ready
+              if (isPipActive) {
+                // Close PiP
+                try {
+                  if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture()
+                  }
+                  // Cancel animation
+                  if (pipAnimationRef.current) {
+                    cancelAnimationFrame(pipAnimationRef.current)
+                    pipAnimationRef.current = null
+                  }
+                  setIsPipActive(false)
+                } catch (err) {
+                  console.error('Failed to exit PiP:', err)
+                }
+              } else {
+                // Open PiP
+                const canvas = document.getElementById('clockCanvas') as HTMLCanvasElement
+                const video = document.getElementById('pipVideo') as HTMLVideoElement
+                if (!canvas || !video) return
                 
-                // Set canvas size
-                canvas.width = 1280
-                canvas.height = 720
-                
-                let lastTime = ''
-                let lastBgColor = ''
-                let lastTextColor = ''
-                let lastUnreadCount = unreadCountRef.current
-                
-                // Function to draw the clock
-                const drawClock = () => {
-                  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-                  if (!ctx) return
+                try {
+                  // Wait for all fonts to load
+                  await document.fonts.ready
                   
-                  const now = new Date()
-                  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+                  // Set canvas size
+                  canvas.width = 1280
+                  canvas.height = 720
                   
-                  // Read current theme colors from CSS variables
-                  const styles = getComputedStyle(document.documentElement)
-                  const bgColor = styles.getPropertyValue('--bg-color').trim()
-                  const textColor = styles.getPropertyValue('--text-color').trim()
+                  let lastTime = ''
+                  let lastBgColor = ''
+                  let lastTextColor = ''
+                  let lastUnreadCount = unreadCountRef.current
                   
-                  // Redraw if time changed, colors changed, or unread count changed
-                  if (time === lastTime && bgColor === lastBgColor && textColor === lastTextColor && unreadCountRef.current === lastUnreadCount) return
-                  lastTime = time
-                  lastBgColor = bgColor
-                  lastTextColor = textColor
-                  lastUnreadCount = unreadCountRef.current
-                  
-                  // Clear and fill background
-                  ctx.fillStyle = bgColor
-                  ctx.fillRect(0, 0, canvas.width, canvas.height)
-                  
-                  // Draw the time
-                  ctx.fillStyle = textColor
-                  ctx.font = '700 400px "Inter", -apple-system, BlinkMacSystemFont, sans-serif'
-                  ctx.textAlign = 'center'
-                  ctx.textBaseline = 'middle'
-                  ctx.fillText(time, canvas.width / 2, canvas.height / 2)
-                  
-                  // Draw notification badge if there are unread messages or race notification
-                  if (unreadCountRef.current > 0 || hasRaceNotificationRef.current) {
-                    const badgeX = canvas.width - 120
-                    const badgeY = 100
+                  // Function to draw the clock
+                  const drawClock = () => {
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+                    if (!ctx) return
                     
-                    if (hasRaceNotificationRef.current && (raceActiveRef.current || unreadCountRef.current === 0)) {
-                      // Race notification - animated trophy/star badge
-                      const pulseScale = 1 + Math.sin(frameCountRef.current * 0.1) * 0.1
-                      const badgeRadius = 70 * pulseScale
+                    const now = new Date()
+                    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+                    
+                    // Read current theme colors from CSS variables
+                    const styles = getComputedStyle(document.documentElement)
+                    const bgColor = styles.getPropertyValue('--bg-color').trim()
+                    const textColor = styles.getPropertyValue('--text-color').trim()
+                    
+                    // Redraw if time changed, colors changed, or unread count changed
+                    if (time === lastTime && bgColor === lastBgColor && textColor === lastTextColor && unreadCountRef.current === lastUnreadCount) return
+                    lastTime = time
+                    lastBgColor = bgColor
+                    lastTextColor = textColor
+                    lastUnreadCount = unreadCountRef.current
+                    
+                    // Clear and fill background
+                    ctx.fillStyle = bgColor
+                    ctx.fillRect(0, 0, canvas.width, canvas.height)
+                    
+                    // Draw the time
+                    ctx.fillStyle = textColor
+                    ctx.font = '700 400px "Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+                    ctx.textAlign = 'center'
+                    ctx.textBaseline = 'middle'
+                    ctx.fillText(time, canvas.width / 2, canvas.height / 2)
+                    
+                    // Draw notification badge if there are unread messages or race notification
+                    if (unreadCountRef.current > 0 || hasRaceNotificationRef.current) {
+                      const badgeX = canvas.width - 120
+                      const badgeY = 100
                       
-                      // Draw outer glow
-                      ctx.fillStyle = 'rgba(255, 193, 7, 0.3)'
-                      ctx.beginPath()
-                      ctx.arc(badgeX, badgeY, badgeRadius + 20, 0, Math.PI * 2)
-                      ctx.fill()
-                      
-                      // Draw main badge circle
-                      ctx.fillStyle = '#ffc107'
-                      ctx.beginPath()
-                      ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
-                      ctx.fill()
-                      
-                      // Draw trophy icon
-                      ctx.fillStyle = '#ffffff'
-                      ctx.font = '700 100px Arial'
-                      ctx.textAlign = 'center'
-                      ctx.textBaseline = 'middle'
-                      ctx.fillText('🏆', badgeX, badgeY)
-                    } else {
-                      // Message notification - pulsing red badge
-                      const pulseScale = 1 + Math.sin(frameCountRef.current * 0.08) * 0.15
-                      const badgeRadius = 60 * pulseScale
-                      
-                      // Draw pulsing glow
-                      const glowAlpha = 0.3 + Math.sin(frameCountRef.current * 0.08) * 0.2
-                      ctx.fillStyle = `rgba(255, 59, 48, ${glowAlpha})`
-                      ctx.beginPath()
-                      ctx.arc(badgeX, badgeY, badgeRadius + 15, 0, Math.PI * 2)
-                      ctx.fill()
-                      
-                      // Draw main badge circle
-                      ctx.fillStyle = '#ff3b30'
-                      ctx.beginPath()
-                      ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
-                      ctx.fill()
-                      
-                      // Draw notification count
-                      ctx.fillStyle = '#ffffff'
-                      ctx.font = '700 80px "Inter", -apple-system, BlinkMacSystemFont, sans-serif'
-                      ctx.textAlign = 'center'
-                      ctx.textBaseline = 'middle'
-                      const badgeText = unreadCountRef.current > 9 ? '9+' : unreadCountRef.current.toString()
-                      ctx.fillText(badgeText, badgeX, badgeY)
+                      if (hasRaceNotificationRef.current && (raceActiveRef.current || unreadCountRef.current === 0)) {
+                        // Race notification - animated trophy/star badge
+                        const pulseScale = 1 + Math.sin(frameCountRef.current * 0.1) * 0.1
+                        const badgeRadius = 70 * pulseScale
+                        
+                        // Draw outer glow
+                        ctx.fillStyle = 'rgba(255, 193, 7, 0.3)'
+                        ctx.beginPath()
+                        ctx.arc(badgeX, badgeY, badgeRadius + 20, 0, Math.PI * 2)
+                        ctx.fill()
+                        
+                        // Draw main badge circle
+                        ctx.fillStyle = '#ffc107'
+                        ctx.beginPath()
+                        ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
+                        ctx.fill()
+                        
+                        // Draw trophy icon
+                        ctx.fillStyle = '#ffffff'
+                        ctx.font = '700 100px Arial'
+                        ctx.textAlign = 'center'
+                        ctx.textBaseline = 'middle'
+                        ctx.fillText('🏆', badgeX, badgeY)
+                      } else {
+                        // Message notification - pulsing red badge
+                        const pulseScale = 1 + Math.sin(frameCountRef.current * 0.08) * 0.15
+                        const badgeRadius = 60 * pulseScale
+                        
+                        // Draw pulsing glow
+                        const glowAlpha = 0.3 + Math.sin(frameCountRef.current * 0.08) * 0.2
+                        ctx.fillStyle = `rgba(255, 59, 48, ${glowAlpha})`
+                        ctx.beginPath()
+                        ctx.arc(badgeX, badgeY, badgeRadius + 15, 0, Math.PI * 2)
+                        ctx.fill()
+                        
+                        // Draw main badge circle
+                        ctx.fillStyle = '#ff3b30'
+                        ctx.beginPath()
+                        ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2)
+                        ctx.fill()
+                        
+                        // Draw notification count
+                        ctx.fillStyle = '#ffffff'
+                        ctx.font = '700 80px "Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+                        ctx.textAlign = 'center'
+                        ctx.textBaseline = 'middle'
+                        const badgeText = unreadCountRef.current > 9 ? '9+' : unreadCountRef.current.toString()
+                        ctx.fillText(badgeText, badgeX, badgeY)
+                      }
                     }
                   }
-                }
-                
-                // Start continuous animation first
-                const animate = () => {
-                  frameCountRef.current++
-                  drawClock()
+                  
+                  // Start continuous animation first
+                  const animate = () => {
+                    frameCountRef.current++
+                    drawClock()
+                    pipAnimationRef.current = requestAnimationFrame(animate)
+                  }
+                  if (pipAnimationRef.current) {
+                    cancelAnimationFrame(pipAnimationRef.current)
+                  }
                   pipAnimationRef.current = requestAnimationFrame(animate)
+                  
+                  // Create stream from canvas after animation is running
+                  const stream = canvas.captureStream(30)
+                  video.srcObject = stream
+                  
+                  // Play the video to ensure stream flows
+                  video.play().catch(() => {
+                    // Ignore play errors, video doesn't need to actually play
+                  })
+                  
+                  // Wait for stream to have frames
+                  await new Promise<void>((resolve) => {
+                    setTimeout(resolve, 200)
+                  })
+                  
+                  await video.requestPictureInPicture()
+                  setIsPipActive(true)
+                } catch (err) {
+                  console.error('PiP failed:', err)
                 }
-                if (pipAnimationRef.current) {
-                  cancelAnimationFrame(pipAnimationRef.current)
-                }
-                pipAnimationRef.current = requestAnimationFrame(animate)
-                
-                // Create stream from canvas after animation is running
-                const stream = canvas.captureStream(30)
-                video.srcObject = stream
-                
-                // Play the video to ensure stream flows
-                video.play().catch(() => {
-                  // Ignore play errors, video doesn't need to actually play
-                })
-                
-                // Wait for stream to have frames
-                await new Promise<void>((resolve) => {
-                  setTimeout(resolve, 200)
-                })
-                
-                await video.requestPictureInPicture()
-              } catch (err) {
-                console.error('PiP failed:', err)
               }
             }}
             className="flex items-center justify-center gap-2.5"
@@ -352,7 +382,7 @@ function App() {
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/>
             </svg>
-            Picture in Picture
+            {isPipActive ? 'Exit Picture in Picture' : 'Picture in Picture'}
           </button>
 
           <button
