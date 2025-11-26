@@ -1,5 +1,4 @@
 import { ChatRoom } from './ChatRoom.js';
-import indexHTML from '../index.html?raw';
 
 export { ChatRoom };
 
@@ -16,15 +15,7 @@ const handler: ExportedHandler<any> = {
       return room.fetch(request);
     }
 
-    // Serve the main HTML page
-    if (url.pathname === '/' || url.pathname === '/index.html') {
-      return new Response(indexHTML, {
-        headers: {
-          'Content-Type': 'text/html;charset=UTF-8',
-        },
-      });
-    }
-
+    // Let Vite handle frontend routes (404 will be caught by Vite)
     return new Response('Not Found', { status: 404 });
   },
 };
