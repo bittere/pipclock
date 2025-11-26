@@ -2,10 +2,26 @@ export default function Toast() {
   return (
     <div
       id="toastNotification"
-      className="fixed bottom-10 right-10 bg-gradient-to-br from-[var(--text-color)] to-[rgba(58,58,63,0.9)] text-white px-6 py-4 rounded-2xl opacity-0 transform translate-y-[120%] scale-75 transition-all z-[10000] shadow-lg pointer-events-none max-w-sm"
+      className="select-none"
+      style={{
+        position: 'fixed',
+        bottom: '40px',
+        right: '40px',
+        background: 'rgba(58, 58, 63, 0.9)',
+        color: 'white',
+        padding: '16px 24px',
+        borderRadius: '16px',
+        opacity: 0,
+        transform: 'translateY(120%) scale(0.75)',
+        transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        zIndex: 10000,
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
+        pointerEvents: 'none',
+        maxWidth: '320px',
+      }}
     >
-      <div className="font-semibold text-sm mb-2">Message</div>
-      <div className="text-sm opacity-95">Content</div>
+      <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '8px' }}>Message</div>
+      <div style={{ fontSize: '14px', opacity: 0.95 }}>Content</div>
     </div>
   )
 }

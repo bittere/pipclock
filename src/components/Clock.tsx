@@ -17,7 +17,17 @@ export default function Clock() {
   }, [])
 
   return (
-    <div className="text-9xl font-bold text-[var(--text-color)] mb-16 font-variant-numeric-tabular tracking-tighter transition-all">
+    <div 
+      className="font-bold text-[var(--text-color)] mb-[60px] transition-all select-none"
+      style={{
+        fontSize: '140px',
+        fontWeight: 700,
+        letterSpacing: '-4px',
+        fontVariantNumeric: 'tabular-nums',
+        lineHeight: 1,
+        color: 'var(--text-color)',
+      }}
+    >
       {time}
     </div>
   )

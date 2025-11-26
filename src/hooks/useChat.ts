@@ -19,6 +19,7 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
   const wsRef = useRef<WebSocket | null>(null)
   const onRaceEventRef = useRef(onRaceEvent)
   const onUsernameReceivedRef = useRef(onUsernameReceived)
+  const initializingRef = useRef(false)
   const [isConnected, setIsConnected] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [onlineCount, setOnlineCount] = useState(0)
@@ -33,9 +34,10 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
 
   useEffect(() => {
     // Prevent double initialization in Strict Mode
-    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+    if (initializingRef.current || (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING))) {
       return
     }
+    initializingRef.current = true
 
     let isMounted = true
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -47,6 +49,9 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
       if (isMounted) {
         setIsConnected(true)
         console.log('WebSocket connected')
+        
+        // Send register message to officially join
+        ws.send(JSON.stringify({ type: 'register' }))
       }
     }
     
@@ -67,7 +72,7 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
             timestamp: data.timestamp || Date.now()
           }
           setMessages(prev => [...(Array.isArray(prev) ? prev : []), message])
-        } else if (data.type === 'user_joined' || data.type === 'user_left') {
+        } else if (data.type === 'user_joined' || data.type === 'user_left' || data.type === 'user_count') {
           setOnlineCount(data.userCount || 0)
         } else if (data.type === 'history') {
           const messages = (data.messages || []).map((msg: any) => ({
@@ -80,6 +85,14 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
         } else if (data.type === 'user_info') {
           // Receive username from server (server generates fun nicknames)
           setUsername(data.username)
+          
+          // Store nickname to localStorage for future sessions
+          const storedNicknames = JSON.parse(localStorage.getItem('previousNicknames') || '[]')
+          if (!storedNicknames.includes(data.username)) {
+            storedNicknames.push(data.username)
+            localStorage.setItem('previousNicknames', JSON.stringify(storedNicknames))
+          }
+          
           onUsernameReceivedRef.current?.(data.username)
         } else if (data.type === 'interactive_race') {
           // Add race started notification to messages
@@ -94,7 +107,7 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
             type: 'race_started',
             raceId: data.raceId,
           })
-        } else if (data.type === 'update_leaderboard') {
+        } else if (data.type === 'leaderboard_update') {
           onRaceEventRef.current?.({
             type: 'leaderboard_update',
             raceId: data.raceId,
@@ -134,6 +147,7 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
     
     return () => {
       isMounted = false
+      initializingRef.current = false
       window.removeEventListener('beforeunload', handleBeforeUnload)
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'disconnect' }))

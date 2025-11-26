@@ -6,6 +6,8 @@ export class ChatRoom extends DurableObject {
   messageHistory: any[] = [];
   lastClearTime: number = Date.now();
   races: Map<string, any> = new Map();
+  scores: Map<string, any[]> = new Map(); // raceId -> array of score entries
+  scoreTimestamps: Map<string, number> = new Map(); // "raceId:userId" -> timestamp for rate limiting
   clearInterval: any;
   inactivityTimeout: number = 60 * 1000; // 1 minute
   inactivityCheckInterval: any;
@@ -112,136 +114,38 @@ export class ChatRoom extends DurableObject {
     websocket.accept();
 
     let username: string | null = null;
+    let isRegistered = false;
+    let session: any = null;
 
-    // Wait briefly for client to send username (if they have one saved)
-    const usernameTimeout = new Promise<string | null>((resolve) =>
-      setTimeout(() => resolve(null), 500)
-    );
-
-    const usernamePromise = new Promise<string>((resolve) => {
-      const handler = (msg: any) => {
-        try {
-          const data = JSON.parse(msg.data);
-          if (data.type === 'init' && data.username) {
-            websocket.removeEventListener('message', handler);
-            resolve(data.username);
-          }
-        } catch (err) {
-          // Ignore parse errors
-        }
-      };
-      websocket.addEventListener('message', handler);
-    });
-
-    username = await Promise.race([usernamePromise, usernameTimeout]);
-
-    // If no username provided, generate random goofy alliterated username
-    if (!username) {
+    // Helper function to generate random username
+    const generateUsername = () => {
       const alliterations: Record<string, any> = {
-        A: {
-          adj: ['Absurd', 'Awkward', 'Anxious', 'Angry'],
-          noun: ['Armadillos', 'Avocados', 'Accordions', 'Anchovies'],
-        },
-        B: {
-          adj: ['Bamboozled', 'Beefy', 'Bonkers', 'Burpy'],
-          noun: ['Burritos', 'Baboons', 'Bagpipes', 'Biscuits'],
-        },
-        C: {
-          adj: ['Confused', 'Chunky', 'Caffeinated', 'Clumsy'],
-          noun: ['Cabbages', 'Chihuahuas', 'Coconuts', 'Cactus'],
-        },
-        D: {
-          adj: ['Derpy', 'Dramatic', 'Doughy', 'Drippy'],
-          noun: ['Donuts', 'Dumplings', 'Doorknobs', 'Dingoes'],
-        },
-        E: {
-          adj: ['Existential', 'Exploding', 'Eccentric', 'Elastic'],
-          noun: ['Eggplants', 'Earlobes', 'Elbows', 'Emus'],
-        },
-        F: {
-          adj: ['Flabby', 'Funky', 'Ferocious', 'Fluffy'],
-          noun: ['Flamingos', 'Fajitas', 'Fungus', 'Ferrets'],
-        },
-        G: {
-          adj: ['Grumpy', 'Greasy', 'Giggly', 'Glitchy'],
-          noun: ['Giraffes', 'Gherkins', 'Goblins', 'Grandmas'],
-        },
-        H: {
-          adj: ['Hysterical', 'Hairy', 'Hollow', 'Hypnotic'],
-          noun: ['Hamsters', 'Hotdogs', 'Hedgehogs', 'Hipsters'],
-        },
-        I: {
-          adj: ['Irrational', 'Itchy', 'Inverted', 'Invisible'],
-          noun: ['Iguanas', 'Icebergs', 'Insects', 'Impostors'],
-        },
-        J: {
-          adj: ['Jiggly', 'Jazzy', 'Jittery', 'Judgmental'],
-          noun: ['Jellybeans', 'Jackrabbits', 'Jalapenos', 'Jumpsuits'],
-        },
-        K: {
-          adj: ['Kooky', 'Knobbly', 'Knotty', 'Klutzy'],
-          noun: ['Kangaroos', 'Kazoos', 'Kebabs', 'Kittens'],
-        },
-        L: {
-          adj: ['Lumpy', 'Loopy', 'Lazy', 'Long'],
-          noun: ['Llamas', 'Lobsters', 'Loaves', 'Lemons'],
-        },
-        M: {
-          adj: ['Mushy', 'Manic', 'Moist', 'Melodramatic'],
-          noun: ['Muffins', 'Meatballs', 'Manatees', 'Mustaches'],
-        },
-        N: {
-          adj: ['Nervous', 'Noodle', 'Naughty', 'Noisy'],
-          noun: ['Narwhals', 'Nuggets', 'Ninjas', 'Noses'],
-        },
-        O: {
-          adj: ['Oddball', 'Oily', 'Overcooked', 'Obnoxious'],
-          noun: ['Ostriches', 'Onions', 'Omelets', 'Octopuses'],
-        },
-        P: {
-          adj: ['Pudgy', 'Panic', 'Peculiar', 'Potato'],
-          noun: ['Pickles', 'Pigeons', 'Pancakes', 'Poodles'],
-        },
-        Q: {
-          adj: ['Queasy', 'Quirky', 'Questionable', 'Quivering'],
-          noun: ['Quokkas', 'Quesadillas', 'Quacks', 'Queens'],
-        },
-        R: {
-          adj: ['Round', 'Rusty', 'Rebellious', 'Roasted'],
-          noun: ['Raccoons', 'Ravioli', 'Roosters', 'Radishes'],
-        },
-        S: {
-          adj: ['Soggy', 'Spicy', 'Squeaky', 'Suspicious'],
-          noun: ['Sausages', 'Sloths', 'Squirrels', 'Sandwiches'],
-        },
-        T: {
-          adj: ['Tubby', 'Twitchy', 'Tasty', 'Terrified'],
-          noun: ['Toasters', 'Turnips', 'Tacos', 'Turkeys'],
-        },
-        U: {
-          adj: ['Unhinged', 'Unwashed', 'Useless', 'Unlucky'],
-          noun: ['Unicorns', 'Underwear', 'Utensils', 'Uncles'],
-        },
-        V: {
-          adj: ['Violent', 'Vague', 'Vengeful', 'Vegetarian'],
-          noun: ['Vultures', 'Vacuums', 'Vegetables', 'Velociraptors'],
-        },
-        W: {
-          adj: ['Wobbly', 'Wiggly', 'Whiny', 'Wrinkly'],
-          noun: ['Walruses', 'Waffles', 'Weasels', 'Wombats'],
-        },
-        X: {
-          adj: ['Xtra', 'Xenon', 'Xeric'],
-          noun: ['Xylophones', 'X-rays'],
-        },
-        Y: {
-          adj: ['Yelling', 'Yeasty', 'Yawning', 'Yucky'],
-          noun: ['Yetis', 'Yogurts', 'Yams', 'Yoyos'],
-        },
-        Z: {
-          adj: ['Zesty', 'Zonked', 'Zigzag', 'Zealous'],
-          noun: ['Zombies', 'Zucchinis', 'Zebras', 'Zippers'],
-        },
+        A: { adj: ['Absurd', 'Awkward', 'Anxious', 'Angry'], noun: ['Armadillos', 'Avocados', 'Accordions', 'Anchovies'] },
+        B: { adj: ['Bamboozled', 'Beefy', 'Bonkers', 'Burpy'], noun: ['Burritos', 'Baboons', 'Bagpipes', 'Biscuits'] },
+        C: { adj: ['Confused', 'Chunky', 'Caffeinated', 'Clumsy'], noun: ['Cabbages', 'Chihuahuas', 'Coconuts', 'Cactus'] },
+        D: { adj: ['Derpy', 'Dramatic', 'Doughy', 'Drippy'], noun: ['Donuts', 'Dumplings', 'Doorknobs', 'Dingoes'] },
+        E: { adj: ['Existential', 'Exploding', 'Eccentric', 'Elastic'], noun: ['Eggplants', 'Earlobes', 'Elbows', 'Emus'] },
+        F: { adj: ['Flabby', 'Funky', 'Ferocious', 'Fluffy'], noun: ['Flamingos', 'Fajitas', 'Fungus', 'Ferrets'] },
+        G: { adj: ['Grumpy', 'Greasy', 'Giggly', 'Glitchy'], noun: ['Giraffes', 'Gherkins', 'Goblins', 'Grandmas'] },
+        H: { adj: ['Hysterical', 'Hairy', 'Hollow', 'Hypnotic'], noun: ['Hamsters', 'Hotdogs', 'Hedgehogs', 'Hipsters'] },
+        I: { adj: ['Irrational', 'Itchy', 'Inverted', 'Invisible'], noun: ['Iguanas', 'Icebergs', 'Insects', 'Impostors'] },
+        J: { adj: ['Jiggly', 'Jazzy', 'Jittery', 'Judgmental'], noun: ['Jellybeans', 'Jackrabbits', 'Jalapenos', 'Jumpsuits'] },
+        K: { adj: ['Kooky', 'Knobbly', 'Knotty', 'Klutzy'], noun: ['Kangaroos', 'Kazoos', 'Kebabs', 'Kittens'] },
+        L: { adj: ['Lumpy', 'Loopy', 'Lazy', 'Long'], noun: ['Llamas', 'Lobsters', 'Loaves', 'Lemons'] },
+        M: { adj: ['Mushy', 'Manic', 'Moist', 'Melodramatic'], noun: ['Muffins', 'Meatballs', 'Manatees', 'Mustaches'] },
+        N: { adj: ['Nervous', 'Noodle', 'Naughty', 'Noisy'], noun: ['Narwhals', 'Nuggets', 'Ninjas', 'Noses'] },
+        O: { adj: ['Oddball', 'Oily', 'Overcooked', 'Obnoxious'], noun: ['Ostriches', 'Onions', 'Omelets', 'Octopuses'] },
+        P: { adj: ['Pudgy', 'Panic', 'Peculiar', 'Potato'], noun: ['Pickles', 'Pigeons', 'Pancakes', 'Poodles'] },
+        Q: { adj: ['Queasy', 'Quirky', 'Questionable', 'Quivering'], noun: ['Quokkas', 'Quesadillas', 'Quacks', 'Queens'] },
+        R: { adj: ['Round', 'Rusty', 'Rebellious', 'Roasted'], noun: ['Raccoons', 'Ravioli', 'Roosters', 'Radishes'] },
+        S: { adj: ['Soggy', 'Spicy', 'Squeaky', 'Suspicious'], noun: ['Sausages', 'Sloths', 'Squirrels', 'Sandwiches'] },
+        T: { adj: ['Tubby', 'Twitchy', 'Tasty', 'Terrified'], noun: ['Toasters', 'Turnips', 'Tacos', 'Turkeys'] },
+        U: { adj: ['Unhinged', 'Unwashed', 'Useless', 'Unlucky'], noun: ['Unicorns', 'Underwear', 'Utensils', 'Uncles'] },
+        V: { adj: ['Violent', 'Vague', 'Vengeful', 'Vegetarian'], noun: ['Vultures', 'Vacuums', 'Vegetables', 'Velociraptors'] },
+        W: { adj: ['Wobbly', 'Wiggly', 'Whiny', 'Wrinkly'], noun: ['Walruses', 'Waffles', 'Weasels', 'Wombats'] },
+        X: { adj: ['Xtra', 'Xenon', 'Xeric'], noun: ['Xylophones', 'X-rays'] },
+        Y: { adj: ['Yelling', 'Yeasty', 'Yawning', 'Yucky'], noun: ['Yetis', 'Yogurts', 'Yams', 'Yoyos'] },
+        Z: { adj: ['Zesty', 'Zonked', 'Zigzag', 'Zealous'], noun: ['Zombies', 'Zucchinis', 'Zebras', 'Zippers'] },
       };
 
       const letters = Object.keys(alliterations);
@@ -249,50 +153,106 @@ export class ChatRoom extends DurableObject {
       const data = alliterations[randomLetter];
       const randomAdj = data.adj[Math.floor(Math.random() * data.adj.length)];
       const randomNoun = data.noun[Math.floor(Math.random() * data.noun.length)];
-
-      username = `${randomAdj} ${randomNoun}`;
-    }
-
-    const session = {
-      websocket,
-      username,
-      joinedAt: Date.now(),
-      lastActivityTime: Date.now(),
+      return `${randomAdj} ${randomNoun}`;
     };
 
-    this.sessions.set(websocket, session);
-
-    // Send message history to new user
-    websocket.send(
-      JSON.stringify({
-        type: 'history',
-        messages: this.messageHistory,
-      })
-    );
-
-    // Send current user info
-    websocket.send(
-      JSON.stringify({
-        type: 'user_info',
-        username: username,
-      })
-    );
-
-    // Broadcast to all (including new user) that someone joined
-    this.broadcast({
-      type: 'user_joined',
-      username: username,
-      timestamp: Date.now(),
-      userCount: this.sessions.size,
-    });
-
-    // Handle incoming messages
+    // Listen for register message
     websocket.addEventListener('message', async (msg: any) => {
       try {
+        const data = JSON.parse(msg.data);
+
+        // Handle register message to officially join
+        if (data.type === 'register') {
+          if (isRegistered) return; // Already registered
+          isRegistered = true;
+
+          username = data.username || generateUsername();
+
+          session = {
+            websocket,
+            username,
+            joinedAt: Date.now(),
+            lastActivityTime: Date.now(),
+          };
+
+          this.sessions.set(websocket, session);
+
+          // Send message history to new user
+          websocket.send(
+            JSON.stringify({
+              type: 'history',
+              messages: this.messageHistory,
+            })
+          );
+
+          // Send current user info
+          websocket.send(
+            JSON.stringify({
+              type: 'user_info',
+              username: username,
+            })
+          );
+
+          // Send current online count to the new user
+          websocket.send(
+            JSON.stringify({
+              type: 'user_count',
+              userCount: this.sessions.size,
+            })
+          );
+
+          // Send active races to new user
+          for (const [raceId, race] of this.races.entries()) {
+            // Send race started message
+            websocket.send(
+              JSON.stringify({
+                type: 'interactive_race',
+                raceId: raceId,
+                timestamp: race.startTime,
+              })
+            );
+
+            // Send current leaderboard for this race if it exists
+            if (this.scores.has(raceId)) {
+              const raceScores = this.scores.get(raceId)!;
+              const leaderboard = raceScores
+                .sort((a: any, b: any) => {
+                  if (b.score !== a.score) {
+                    return b.score - a.score;
+                  }
+                  return a.timestamp - b.timestamp;
+                })
+                .slice(0, 50)
+                .map((entry: any) => ({
+                  username: entry.username,
+                  score: entry.score,
+                }));
+
+              websocket.send(
+                JSON.stringify({
+                  type: 'leaderboard_update',
+                  raceId: raceId,
+                  leaderboard: leaderboard,
+                })
+              );
+            }
+          }
+
+          // Broadcast to all that someone joined
+          this.broadcast({
+            type: 'user_joined',
+            username: username,
+            timestamp: Date.now(),
+            userCount: this.sessions.size,
+          });
+          return;
+        }
+
+        // If not registered yet, ignore other messages
+        if (!isRegistered || !session) return;
+
         // Update activity time
         session.lastActivityTime = Date.now();
-
-        const data = JSON.parse(msg.data);
 
         if (data.type === 'pong') {
           // Client responded to ping, connection is alive
@@ -336,31 +296,118 @@ export class ChatRoom extends DurableObject {
           // Auto-cleanup race after 2 minutes
           setTimeout(() => {
             this.races.delete(raceId);
+            this.scores.delete(raceId);
+            // Also clear rate limit timestamps for this race
+            const keysToDelete: string[] = [];
+            for (const [key] of this.scoreTimestamps) {
+              if (key.startsWith(`${raceId}:`)) {
+                keysToDelete.push(key);
+              }
+            }
+            keysToDelete.forEach(key => this.scoreTimestamps.delete(key));
           }, 120000);
         } else if (data.type === 'submit_score') {
           // Handle score submission
           const { raceId, score } = data;
-          const race = this.races.get(raceId);
-
-          if (race) {
-            race.scores.set(username, score);
-
-            // Calculate leaderboard
-            const leaderboard = Array.from(race.scores.entries())
-              .map(([user, s]: [string, number]) => ({ username: user, score: s }))
-              .sort((a: any, b: any) => b.score - a.score);
-
-            // Broadcast update
-            this.broadcast({
-              type: 'update_leaderboard',
-              raceId: raceId,
-              leaderboard: leaderboard,
-            });
+          
+          // Validation
+          if (typeof score !== 'number' || isNaN(score) || !isFinite(score)) {
+            websocket.send(JSON.stringify({
+              type: 'error',
+              code: 'INVALID_SCORE',
+              message: 'Score must be a valid number',
+            }));
+            return;
           }
+
+          if (score < 0 || score > 100) {
+            websocket.send(JSON.stringify({
+              type: 'error',
+              code: 'INVALID_SCORE',
+              message: 'Score must be between 0 and 100',
+            }));
+            return;
+          }
+
+          // Check if race exists
+          if (!this.races.has(raceId)) {
+            websocket.send(JSON.stringify({
+              type: 'error',
+              code: 'RACE_NOT_FOUND',
+              message: 'Race does not exist or has ended',
+            }));
+            return;
+          }
+
+          // Rate limiting: check if user already submitted for this race recently
+          const rateKey = `${raceId}:${username}`;
+          const lastSubmissionTime = this.scoreTimestamps.get(rateKey);
+          const now = Date.now();
+          
+          if (lastSubmissionTime && now - lastSubmissionTime < 10000) { // 10 second cooldown
+            websocket.send(JSON.stringify({
+              type: 'error',
+              code: 'RATE_LIMITED',
+              message: 'Please wait before submitting another score',
+            }));
+            return;
+          }
+
+          // Store the score entry
+          const scoreEntry = {
+            username: username,
+            score: parseFloat(score.toFixed(2)),
+            timestamp: now,
+            userId: session.websocket, // Using websocket as unique identifier
+          };
+
+          // Initialize race scores array if needed
+          if (!this.scores.has(raceId)) {
+            this.scores.set(raceId, []);
+          }
+
+          // Check for duplicate submission from same user in this race
+          const raceScores = this.scores.get(raceId)!;
+          const existingIndex = raceScores.findIndex((s: any) => s.username === username);
+          
+          if (existingIndex >= 0) {
+            // Update existing score
+            raceScores[existingIndex] = scoreEntry;
+          } else {
+            // Add new score
+            raceScores.push(scoreEntry);
+          }
+
+          // Update rate limit timestamp
+          this.scoreTimestamps.set(rateKey, now);
+
+          // Build sorted leaderboard
+          const leaderboard = raceScores
+            .sort((a: any, b: any) => {
+              // Sort by score descending
+              if (b.score !== a.score) {
+                return b.score - a.score;
+              }
+              // Tie-breaker: earliest submission first
+              return a.timestamp - b.timestamp;
+            })
+            .slice(0, 50) // Limit to top 50
+            .map((entry: any) => ({
+              username: entry.username,
+              score: entry.score,
+            }));
+
+          // Broadcast leaderboard update to all clients
+          this.broadcast({
+            type: 'leaderboard_update',
+            raceId: raceId,
+            leaderboard: leaderboard,
+          });
         } else if (data.type === 'set_username') {
           // Allow users to set custom username
           const oldUsername = session.username;
           session.username = data.username;
+          username = data.username;
 
           this.broadcast({
             type: 'username_changed',
@@ -405,12 +452,14 @@ export class ChatRoom extends DurableObject {
     websocket.addEventListener('close', () => {
       this.sessions.delete(websocket);
 
-      this.broadcast({
-        type: 'user_left',
-        username: username,
-        timestamp: Date.now(),
-        userCount: this.sessions.size,
-      });
+      if (isRegistered && username) {
+        this.broadcast({
+          type: 'user_left',
+          username: username,
+          timestamp: Date.now(),
+          userCount: this.sessions.size,
+        });
+      }
     });
 
     websocket.addEventListener('error', () => {

@@ -3,12 +3,14 @@ import Clock from './components/Clock'
 import ChatPanel from './components/ChatPanel'
 import CpsDisplay from './components/CpsDisplay'
 import Toast from './components/Toast'
+import Confetti from './components/Confetti'
 import { useChat, RaceEvent } from './hooks/useChat'
 
 function App() {
   const [isDark, setIsDark] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [cps, setCps] = useState(0)
+  const [isRaceActive, setIsRaceActive] = useState(false)
   const clickCountRef = useRef(0)
   const cpsIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const raceRef = useRef<any>(null)
@@ -19,7 +21,7 @@ function App() {
       if (event.type === 'race_started' && raceRef.current) {
         raceRef.current.startRace(event.raceId!)
       } else if (event.type === 'leaderboard_update' && raceRef.current) {
-        raceRef.current.updateLeaderboard(event.leaderboard || [])
+        raceRef.current.updateLeaderboard(event.leaderboard || [], event.raceId)
       }
     }, [])
   )
@@ -108,19 +110,73 @@ function App() {
   }, [])
 
   return (
-    <div className="w-screen h-screen bg-[var(--bg-color)] text-[var(--text-color)] overflow-hidden transition-colors">
-      <CpsDisplay cps={cps} />
+    <div 
+      className="w-screen h-screen overflow-hidden transition-colors select-none"
+      style={{
+        backgroundColor: 'var(--bg-color)',
+        color: 'var(--text-color)',
+        animation: isRaceActive ? 'none' : 'none',
+      }}
+    >
+      {!isRaceActive && <CpsDisplay cps={cps} />}
+      
+      {/* Race active indicator */}
+      {isRaceActive && (
+        <div
+          className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#5b9cff] via-[#4a87ff] to-[#5b9cff] z-[1000]"
+          style={{
+            animation: 'race-shine 1.5s infinite',
+            backgroundSize: '200% 100%',
+            boxShadow: '0 0 20px rgba(91, 156, 255, 0.6)',
+          }}
+        />
+      )}
+      <Confetti />
       <Toast />
       
-      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} chatContext={chatContext} setRaceRef={setRaceRef} />
+      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} chatContext={chatContext} setRaceRef={setRaceRef} onRaceStatusChange={setIsRaceActive} />
       
-      <div className="flex flex-col items-center justify-center h-full">
+      <div 
+        className="flex flex-col items-center justify-center h-full transition-all"
+        style={{
+          marginLeft: chatOpen ? '500px' : '0',
+          transitionDuration: '0.4s',
+          transitionTimingFunction: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+        }}
+      >
         <Clock />
         
         <div className="flex gap-4 items-center">
           <button
             id="pipButton"
-            className="px-9 py-4 text-lg font-medium bg-[var(--button-bg)] text-[var(--button-text)] rounded-3xl cursor-pointer transition-all hover:bg-[var(--button-hover)] hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg"
+            className="flex items-center justify-center gap-2.5"
+            style={{
+              padding: '16px 36px',
+              fontSize: '17px',
+              fontWeight: 500,
+              background: 'var(--button-bg)',
+              color: 'var(--button-text)',
+              border: 'none',
+              borderRadius: '24px',
+              cursor: 'pointer',
+              transition: 'all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              letterSpacing: '-0.2px',
+              lineHeight: 1.6,
+              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+            }}
+            onMouseEnter={(e) => {
+              const btn = e.currentTarget as HTMLButtonElement
+              btn.style.background = 'var(--button-hover)'
+              btn.style.transform = 'translateY(-2px)'
+              btn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+            }}
+            onMouseLeave={(e) => {
+              const btn = e.currentTarget as HTMLButtonElement
+              btn.style.background = 'var(--button-bg)'
+              btn.style.transform = 'translateY(0)'
+              btn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)'
+            }}
           >
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.98 2 1.98h18c1.1 0 2-.88 2-1.98V5c0-1.1-.9-2-2-2zm0 16.01H3V4.98h18v14.03z"/>
@@ -130,7 +186,33 @@ function App() {
 
           <button
             onClick={toggleTheme}
-            className="w-12 h-12 p-3.5 rounded-full bg-[var(--button-bg)] text-[var(--button-text)] cursor-pointer transition-all hover:bg-[var(--button-hover)] hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center shadow-md hover:shadow-lg"
+            style={{
+              padding: '14px',
+              width: '50px',
+              height: '50px',
+              borderRadius: '50%',
+              background: 'var(--button-bg)',
+              color: 'var(--button-text)',
+              cursor: 'pointer',
+              transition: 'all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onMouseEnter={(e) => {
+              const btn = e.currentTarget as HTMLButtonElement
+              btn.style.background = 'var(--button-hover)'
+              btn.style.transform = 'translateY(-2px)'
+              btn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+            }}
+            onMouseLeave={(e) => {
+              const btn = e.currentTarget as HTMLButtonElement
+              btn.style.background = 'var(--button-bg)'
+              btn.style.transform = 'translateY(0)'
+              btn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)'
+            }}
             aria-label="Toggle Dark Mode"
           >
             {isDark ? (
@@ -149,7 +231,33 @@ function App() {
       <button
         onClick={() => setChatOpen(!chatOpen)}
         id="chatToggle"
-        className="fixed bottom-10 left-10 w-16 h-16 rounded-full bg-[var(--button-bg)] text-[var(--button-text)] cursor-pointer transition-all hover:shadow-xl shadow-lg flex items-center justify-center z-[998]"
+        style={{
+          position: 'fixed',
+          bottom: '40px',
+          left: '40px',
+          width: '64px',
+          height: '64px',
+          borderRadius: '50%',
+          padding: 0,
+          background: 'var(--button-bg)',
+          color: 'var(--button-text)',
+          cursor: 'pointer',
+          transition: 'all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 998,
+          border: 'none',
+        }}
+        onMouseEnter={(e) => {
+          const btn = e.currentTarget as HTMLButtonElement
+          btn.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.2)'
+        }}
+        onMouseLeave={(e) => {
+          const btn = e.currentTarget as HTMLButtonElement
+          btn.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.15)'
+        }}
         aria-label="Toggle Chat"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

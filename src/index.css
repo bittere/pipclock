@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -35,6 +36,13 @@
   --input-bg: #2a2a35;
 }
 
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -42,6 +50,9 @@ body {
   color: var(--text-color);
   transition: background 0.3s ease, color 0.3s ease;
   font-size: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 @keyframes pulse {
@@ -64,4 +75,140 @@ body {
 @keyframes ripple-expand {
   0% { width: 10px; height: 10px; opacity: 0.5; }
   100% { width: 200px; height: 200px; opacity: 0; }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-scale {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes click-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+}
+
+/* Race effects */
+@keyframes race-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(91, 156, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(91, 156, 255, 0.8);
+  }
+}
+
+@keyframes race-shine {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes rank-enter {
+  0% {
+    opacity: 0;
+    transform: slideInLeft;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes score-pop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(91, 156, 255, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(91, 156, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 20px rgba(91, 156, 255, 0);
+  }
+}
+
+@keyframes bounce-race {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+
+
+/* Custom scrollbar */
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: var(--text-color);
+  border-radius: 3px;
+  opacity: 0.4;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  opacity: 0.6;
+}
+
+/* Firefox */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.4) transparent;
+}
+
+/* Toast styling */
+#toastNotification {
+  background: rgba(58, 58, 63, 0.9) !important;
+}
+
+[data-theme="dark"] #toastNotification {
+  background: rgba(58, 58, 63, 0.9) !important;
 }
