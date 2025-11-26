@@ -3,6 +3,7 @@ import { cloudflare } from '@cloudflare/vite-plugin';
 
 export default defineConfig({
   plugins: [cloudflare()],
+  publicDir: 'public',
   build: {
     rollupOptions: {
       input: './index.html',
