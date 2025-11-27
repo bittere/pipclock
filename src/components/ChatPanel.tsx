@@ -26,7 +26,7 @@ interface ChatPanelProps {
   giphyApiKey?: string
 }
 
-export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, onRaceStatusChange, confettiRef, giphyApiKey = import.meta.env.VITE_GIPHY_API_KEY || '' }: ChatPanelProps) {
+export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, onRaceStatusChange, confettiRef, giphyApiKey = 'rk1c3YOVOC4X9WH9KrczWwMgMrGaZatd' }: ChatPanelProps) {
   const [message, setMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [raceActive, setRaceActive] = useState(false)
