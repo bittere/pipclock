@@ -16,6 +16,7 @@ function App() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [hasRaceNotification, setHasRaceNotification] = useState(false)
   const [isPipActive, setIsPipActive] = useState(false)
+  const [showPipNotifications, setShowPipNotifications] = useState(true)
   const clickCountRef = useRef(0)
   const cpsIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const raceRef = useRef<any>(null)
@@ -57,7 +58,17 @@ function App() {
     const theme = localStorage.getItem('theme') || 'light'
     setIsDark(theme === 'dark')
     updateTheme(theme === 'dark')
+
+    const savedShowPipNotifications = localStorage.getItem("showPipNotifications")
+    if (savedShowPipNotifications !== null) {
+      setShowPipNotifications(JSON.parse(savedShowPipNotifications))
+    }
   }, [])
+
+  const handleShowPipNotificationsChange = (value: boolean) => {
+    setShowPipNotifications(value)
+    localStorage.setItem("showPipNotifications", JSON.stringify(value))
+  }
 
   // Keep ref in sync with unread count
   useEffect(() => {
@@ -286,7 +297,7 @@ function App() {
                     ctx.fillText(time, canvas.width / 2, canvas.height / 2)
                     
                     // Draw notification badge if there are unread messages or race notification
-                    if (unreadCountRef.current > 0 || hasRaceNotificationRef.current) {
+                    if (showPipNotifications && (unreadCountRef.current > 0 || hasRaceNotificationRef.current)) {
                       const badgeX = canvas.width - 120
                       const badgeY = 100
                       
@@ -383,7 +394,7 @@ function App() {
                 }
               }
             }}
-            className="flex items-center justify-center gap-2.5 px-8 py-4 text-lg font-medium text-white transition-all transform rounded-full shadow-lg hover:scale-105 hover:shadow-xl active:scale-95 bg-gradient-to-r from-orange-500 to-red-600"
+            className="flex items-center justify-center gap-2.5 px-8 py-4 text-lg font-medium text-primary-foreground transition-all transform rounded-full shadow-lg hover:scale-105 hover:shadow-xl active:scale-95 bg-primary"
             style={{
               fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
             }}
@@ -469,6 +480,8 @@ function App() {
         onOpenChange={setSettingsOpen} 
         isDark={isDark} 
         toggleTheme={toggleTheme} 
+        showPipNotifications={showPipNotifications}
+        onShowPipNotificationsChange={handleShowPipNotificationsChange}
       />
 
       <button

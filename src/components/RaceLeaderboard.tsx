@@ -54,7 +54,7 @@ export default function RaceLeaderboard({
 
         <button
           onClick={onClose}
-          className="w-full mt-6 px-4 py-2 bg-gradient-to-r from-[var(--accent)] to-[#4a87ff] text-white rounded-lg font-medium hover:-translate-y-0.5 transition-all relative overflow-hidden group active:scale-95 transition-transform"
+          className="w-full mt-6 px-4 py-2 bg-gradient-to-r from-[var(--accent)] to-[#4a87ff] text-accent-foreground rounded-lg font-medium hover:-translate-y-0.5 transition-all relative overflow-hidden group active:scale-95 transition-transform"
           style={{
             boxShadow: isActive
               ? '0 4px 12px rgba(91, 156, 255, 0.4)'
