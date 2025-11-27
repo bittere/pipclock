@@ -1,10 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useChat, RaceEvent } from '../hooks/useChat'
+import { useChat, RaceEvent, MathGameEvent } from '../hooks/useChat'
 import RaceLeaderboard from './RaceLeaderboard'
 import InlineRaceLeaderboard from './InlineRaceLeaderboard'
 import EnhancedRaceWidget from './EnhancedRaceWidget'
+import MathGameWidget from './MathGameWidget'
 import ClickParticle from './ClickParticle'
+import GiphyPicker from './GiphyPicker'
 import '../styles/animations.css'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Smile, Image as ImageIcon, MoreVertical, Trash2, Trophy, Search, X, Send, Calculator } from 'lucide-react'
+import { cn } from "@/lib/utils"
+import EmojiPicker from './EmojiPicker'
 
 interface ChatPanelProps {
   isOpen: boolean
@@ -13,13 +23,14 @@ interface ChatPanelProps {
   setRaceRef: (race: any) => void
   onRaceStatusChange: (isActive: boolean) => void
   confettiRef: React.RefObject<any>
+  giphyApiKey?: string
 }
 
-export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, onRaceStatusChange, confettiRef }: ChatPanelProps) {
-  const [dropdownOpen, setDropdownOpen] = useState(false)
+export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, onRaceStatusChange, confettiRef, giphyApiKey = import.meta.env.VITE_GIPHY_API_KEY || '' }: ChatPanelProps) {
   const [message, setMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [raceActive, setRaceActive] = useState(false)
+  const [showGiphyPicker, setShowGiphyPicker] = useState(false)
   const [activeRaces, setActiveRaces] = useState<Map<string, { clickCount: number; progress: number; raceStartTime?: number; remaining?: number }>>(new Map())
   const [completedRaces, setCompletedRaces] = useState<Map<string, { finalCps: number; clickCount: number; completedAt: number }>>(new Map())
   const [particles, setParticles] = useState<Array<{ x: number; y: number; id: number }>>([])
@@ -28,9 +39,40 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
   const raceClickCountRef = useRef<Map<string, number>>(new Map())
   const raceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
   const raceIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
-  const dropdownRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  
+  const { isConnected, messages = [], onlineCount, sendMessage, sendCommand, clearChat, error, username } = chatContext || {}
+  
 
-  const { isConnected, messages = [], onlineCount, sendMessage, sendCommand, clearChat, error, username } = chatContext
+
+  // Update chat context with math game handler if needed
+  // Note: This relies on App.tsx passing the handler to useChat, but ChatPanel receives the context.
+  // Since useChat is called in App.tsx, we need to pass this handler up or handle it in App.tsx.
+  // However, ChatPanel is where we want the logic.
+  // Let's assume App.tsx passes the event to ChatPanel or we can't easily hook into useChat here.
+  // Actually, ChatPanel takes chatContext as a prop.
+  // So we can't inject the handler into useChat from here unless we lift the state up to App.tsx.
+  // OR, we can listen to messages in filteredMessages and detect math game events if they are added to messages?
+  // No, useChat separates events.
+  
+  // Alternative: App.tsx should handle the event and pass activeMathGame state to ChatPanel.
+  // But I want to keep logic here.
+  // Let's check App.tsx.
+  
+  // For now, I'll assume I can't easily hook into the event stream from here without changing App.tsx.
+  // So I will modify App.tsx to pass onMathGameEvent to useChat, and pass the state down.
+  // OR, I can just use the fact that I modified useChat to accept the callback, but useChat is called in App.tsx.
+  
+  // Let's modify App.tsx to manage the math game state and pass it to ChatPanel.
+  // That seems cleaner.
+  
+  // So I will revert this chunk and instead modify App.tsx.
+  // Wait, I can't revert easily.
+  // I'll just not add the handler here yet.
+  
+  // Actually, I'll add the widget rendering logic here, assuming `activeMathGame` is passed as a prop.
+  // So I need to update ChatPanelProps.
+
   
   // Create race object with update function for App to use
   const race = {
@@ -48,7 +90,7 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
   // Filter messages based on search query
   const filteredMessages = searchQuery.trim() === '' 
     ? messages 
-    : messages.filter(msg => {
+    : messages.filter((msg: any) => {
         const query = searchQuery.toLowerCase()
         const messageText = (msg.message || '').toLowerCase()
         const messageUsername = (msg.username || '').toLowerCase()
@@ -60,6 +102,15 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
     const stored = JSON.parse(localStorage.getItem('previousNicknames') || '[]')
     setPreviousNicknames(stored)
   }, [])
+
+  // Auto-grow textarea
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
+    }
+  }, [message])
   
   // Update parent's race ref
   useEffect(() => {
@@ -103,21 +154,10 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
     return () => document.removeEventListener('click', handleClick)
   }, [activeRaces.size])
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false)
-      }
-    }
-
-    if (dropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [dropdownOpen])
+  const hasContent = /\S/.test(message)
 
   const handleSend = () => {
-    if (message.trim() && username) {
+    if (hasContent && username) {
       sendMessage(username, message)
       setMessage('')
     }
@@ -127,19 +167,7 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
-    } else if (e.key === 'Enter' && e.shiftKey) {
-      // Allow Shift+Enter for newlines - textarea handles this natively
-      e.currentTarget.dispatchEvent(new Event('input', { bubbles: true }))
     }
-  }
-
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value)
-    
-    // Auto-resize textarea
-    const textarea = e.currentTarget
-    textarea.style.height = 'auto'
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
   }
 
   const startRaceCountdown = (raceId: string) => {
@@ -190,7 +218,7 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
       const raceWidget = document.querySelector('.race-widget')
       if (raceWidget && confettiRef.current) {
         const rect = raceWidget.getBoundingClientRect()
-        confettiRef.current.trigger(rect.left + rect.width / 2, rect.top + rect.height / 2, 12)
+        confettiRef.current.trigger(rect.left + rect.width / 2, rect.top + rect.height / 2, 6)
       }
       
       // Mark race as completed (permanently)
@@ -220,430 +248,244 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
     raceTimersRef.current.set(raceId, timerId)
   }
 
+  const onEmojiClick = (emojiData: any) => {
+    setMessage(prev => prev + emojiData.emoji)
+  }
+
+  const handleGifSelect = (gifUrl: string, gifId: string) => {
+    // Send GIF directly as a message
+    if (username) {
+      const gifText = `[GIF](${gifUrl})`
+      sendMessage(username, gifText)
+      setShowGiphyPicker(false)
+    }
+  }
+
   return (
     <div
-      className={`fixed left-0 top-0 bottom-0 flex flex-col z-[999] select-none`}
-      style={{
-        width: '500px',
-        background: 'var(--chat-bg)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderRight: '1px solid var(--chat-border)',
-        boxShadow: '4px 0 24px rgba(0, 0, 0, 0.1)',
-        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-        transition: 'transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)',
-      }}
+      className={cn(
+        "fixed left-0 top-0 bottom-0 flex flex-col z-[999] select-none w-[500px] bg-sidebar/95 backdrop-blur-xl border-r border-border shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}
     >
       {/* Header */}
-      <div 
-        className="flex items-start justify-between border-b border-[var(--chat-border)]"
-        style={{
-          padding: '24px 28px',
-          background: 'linear-gradient(180deg, rgba(91, 156, 255, 0.05) 0%, transparent 100%)',
-        }}
-      >
+      <div className="flex items-center justify-between px-6 py-5 border-b border-border/50 bg-gradient-to-b from-primary/5 to-transparent">
         <div>
-          <div 
-            style={{
-              fontSize: '15px',
-              color: 'var(--text-color)',
-              opacity: 0.6,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontWeight: 500,
-              lineHeight: 1.5,
-              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-              marginBottom: '12px',
-            }}
-          >
-            {username}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-medium text-muted-foreground">{username}</span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-background/50 border border-border/50">
+              <span className={cn("w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]", isConnected ? "text-green-500 bg-green-500" : "text-red-500 bg-red-500")} />
+              <span className="text-xs font-medium text-muted-foreground">{onlineCount} online</span>
+            </div>
           </div>
-          <h2 
-            style={{
-              fontSize: '24px',
-              fontWeight: 700,
-              color: 'var(--text-color)',
-              letterSpacing: '-0.3px',
-              lineHeight: 1.4,
-              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-              margin: 0,
-            }}
-          >
-            Global Chat
-          </h2>
-          <div className="flex items-center gap-2 mt-2">
-            <span 
-              style={{
-                width: '8px',
-                height: '8px',
-                background: isConnected ? '#34c759' : '#ff3b30',
-                borderRadius: '50%',
-                boxShadow: isConnected ? '0 0 8px rgba(52, 199, 89, 0.4)' : 'none',
-              }}
-            ></span>
-            <span 
-              style={{
-                fontSize: '15px',
-                color: 'var(--text-color)',
-                opacity: 0.6,
-                fontWeight: 500,
-                lineHeight: 1.5,
-                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-              }}
-            >
-              {onlineCount} online
-            </span>
-          </div>
+          <h2 className="text-2xl font-bold tracking-tight">Global Chat</h2>
         </div>
-        <button
-          id="closeChat"
-          onClick={onClose}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-color)',
-            opacity: 0.6,
-            cursor: 'pointer',
-            padding: '12px',
-            borderRadius: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease',
-            boxShadow: 'none',
-          }}
-          onMouseEnter={(e) => {
-            const btn = e.currentTarget as HTMLButtonElement
-            btn.style.background = 'var(--input-bg)'
-            btn.style.opacity = '1'
-          }}
-          onMouseLeave={(e) => {
-            const btn = e.currentTarget as HTMLButtonElement
-            btn.style.background = 'transparent'
-            btn.style.opacity = '0.6'
-          }}
-          aria-label="Close Chat"
-        >
-          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-          </svg>
-        </button>
+        <Button variant="ghost" size="icon" onClick={onClose} className="rounded-xl hover:bg-muted">
+          <X className="w-5 h-5" />
+        </Button>
       </div>
 
       {/* Status */}
       {!isConnected && (
-        <div 
-          style={{
-            padding: '8px 16px',
-            fontSize: '14px',
-            color: 'var(--text-secondary)',
-            borderBottom: '1px solid var(--chat-border)',
-            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-          }}
-        >
+        <div className="px-6 py-2 text-sm text-muted-foreground bg-muted/30 border-b border-border/50">
           {error || 'Connecting...'}
         </div>
       )}
 
       {/* Search Bar */}
-      <div 
-        style={{
-          padding: '14px 20px',
-          borderBottom: '1px solid var(--chat-border)',
-        }}
-      >
-        <div style={{ position: 'relative' }}>
-          <input
-            type="text"
-            id="chatSearch"
-            placeholder="Search messages..."
+      <div className="px-6 py-4 border-b border-border/50">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              padding: '10px 16px',
-              paddingRight: searchQuery ? '40px' : '16px',
-              border: `2px solid ${searchQuery ? 'var(--accent)' : 'var(--chat-border)'}`,
-              borderRadius: '16px',
-              background: searchQuery ? 'rgba(91, 156, 255, 0.2)' : 'var(--input-bg)',
-              color: 'var(--text-color)',
-              fontSize: '14px',
-              outline: 'none',
-              transition: 'all 0.2s ease',
-              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-              boxShadow: searchQuery ? '0 0 12px 2px rgba(91, 156, 255, 0.4), 0 0 0 3px rgba(91, 156, 255, 0.15)' : 'none',
-            }}
-            onFocus={(e) => {
-              const inp = e.currentTarget as HTMLInputElement
-              if (!searchQuery) {
-                inp.style.borderColor = 'var(--accent)'
-                inp.style.boxShadow = '0 0 0 2px rgba(91, 156, 255, 0.1)'
-              }
-            }}
-            onBlur={(e) => {
-              const inp = e.currentTarget as HTMLInputElement
-              if (!searchQuery) {
-                inp.style.borderColor = 'var(--chat-border)'
-                inp.style.boxShadow = 'none'
-              }
-            }}
+            placeholder="Search messages..."
+            className="pl-9 pr-9 rounded-xl bg-muted/50 border-transparent focus:bg-background focus:border-primary/20 transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              style={{
-                position: 'absolute',
-                right: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-color)',
-                cursor: 'pointer',
-                opacity: 0.6,
-                fontSize: '18px',
-                padding: '4px 8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'opacity 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.6'
-              }}
-              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
 
       {/* Messages */}
-      <div 
-        className="flex-1 overflow-y-auto chat-scroll"
-        style={{
-          padding: '24px 28px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-        }}
-      >
-        {filteredMessages.length === 0 && searchQuery && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: 'var(--text-secondary)',
-              fontSize: '14px',
-            }}
-          >
-            No messages match "{searchQuery}"
-          </div>
-        )}
-        {filteredMessages.map((msg) => {
-          const isUserMessage = msg.username === username || previousNicknames.includes(msg.username || '')
-          
-          return (
-            <div key={msg.id} className={`group flex ${msg.type === 'race_started' ? 'justify-start' : isUserMessage ? 'justify-end' : 'justify-start'}`} style={{ animation: 'pop-in 0.2s ease-out' }}>
-              {msg.type === 'race_started' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                  <EnhancedRaceWidget
-                    raceData={{ raceId: msg.raceId! }}
-                    activeRace={activeRaces.has(msg.raceId!) ? {
-                      raceId: msg.raceId!,
-                      clickCount: activeRaces.get(msg.raceId!)?.clickCount || 0,
-                      progress: activeRaces.get(msg.raceId!)?.progress || 0,
-                      remaining: activeRaces.get(msg.raceId!)?.remaining || 5,
-                    } : null}
-                    completedRace={completedRaces.has(msg.raceId!) ? {
-                      raceId: msg.raceId!,
-                      finalCps: completedRaces.get(msg.raceId!)?.finalCps || 0,
-                      clickCount: completedRaces.get(msg.raceId!)?.clickCount || 0,
-                    } : null}
-                    onStart={() => {
-                      if (!activeRaces.has(msg.raceId!) && !completedRaces.has(msg.raceId!)) {
-                        startRaceCountdown(msg.raceId!)
-                      }
-                    }}
-                  />
-                  {raceLeaderboards.has(msg.raceId!) && (
-                    <InlineRaceLeaderboard
-                      raceId={msg.raceId!}
-                      leaderboard={raceLeaderboards.get(msg.raceId!) || []}
-                      maxEntries={5}
-                      currentUsername={username}
-                    />
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {!isUserMessage && (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-medium text-[var(--accent)]">{msg.username}</span>
-                      <span className="text-xs text-[var(--text-secondary)]">
-                        {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  )}
-                  <div className={`text-sm break-words p-3 rounded-2xl w-fit ${isUserMessage ? 'bg-gradient-to-r from-[var(--accent)] to-[#4a87ff] text-white' : 'bg-[var(--input-bg)] text-[var(--text-color)]'}`}>
-                    {msg.message}
-                  </div>
-                  {isUserMessage && (
-                    <span className="text-xs text-[var(--text-secondary)] text-right">
-                      {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
-                </div>
-              )}
+      <ScrollArea className="flex-1 px-6 py-4 relative">
+        <div className="flex flex-col gap-4 pb-4">
+          {filteredMessages.length === 0 && searchQuery && (
+            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+              No messages match "{searchQuery}"
             </div>
-          )
-        })}
-      </div>
+          )}
+          {filteredMessages.map((msg: any) => {
+            const isUserMessage = msg.username === username || previousNicknames.includes(msg.username || '')
+            
+            return (
+              <div key={msg.id} className={cn("group flex animate-in slide-in-from-bottom-2 duration-300", msg.type === 'race_started' || msg.type === 'math_game' ? 'justify-start' : isUserMessage ? 'justify-end' : 'justify-start')}>
+                {msg.type === 'race_started' ? (
+                  <div className="w-full max-w-sm">
+                    <EnhancedRaceWidget
+                      raceData={{ raceId: msg.raceId! }}
+                      activeRace={activeRaces.has(msg.raceId!) ? {
+                        raceId: msg.raceId!,
+                        clickCount: activeRaces.get(msg.raceId!)?.clickCount || 0,
+                        progress: activeRaces.get(msg.raceId!)?.progress || 0,
+                        remaining: activeRaces.get(msg.raceId!)?.remaining || 5,
+                      } : null}
+                      completedRace={completedRaces.has(msg.raceId!) ? {
+                        raceId: msg.raceId!,
+                        finalCps: completedRaces.get(msg.raceId!)?.finalCps || 0,
+                        clickCount: completedRaces.get(msg.raceId!)?.clickCount || 0,
+                      } : null}
+                      onStart={() => {
+                        if (!activeRaces.has(msg.raceId!) && !completedRaces.has(msg.raceId!)) {
+                          startRaceCountdown(msg.raceId!)
+                        }
+                      }}
+                    />
+                    {raceLeaderboards.has(msg.raceId!) && (
+                      <InlineRaceLeaderboard
+                        raceId={msg.raceId!}
+                        leaderboard={raceLeaderboards.get(msg.raceId!) || []}
+                        maxEntries={5}
+                        currentUsername={username}
+                      />
+                    )}
+                  </div>
+                ) : msg.type === 'math_game' && msg.mathGameData ? (
+                   <div className="w-full max-w-sm">
+                     <MathGameWidget
+                       gameData={msg.mathGameData}
+                       onAnswer={(answer, elapsedTime) => sendCommand({ type: 'submit_math_answer', gameId: msg.mathGameData!.gameId, answer, elapsedTime })}
+                       completed={msg.mathGameData.completed}
+                       winner={msg.mathGameData.winner}
+                       leaderboard={msg.mathGameData.leaderboard}
+                     />
+                   </div>
+                 ) : (
+                   <div className={cn("flex flex-col gap-1 max-w-[85%]", isUserMessage ? "items-end" : "items-start")}>
+                     {!isUserMessage && (
+                       <div className="flex items-baseline gap-2 px-1">
+                         <span className="text-xs font-semibold text-primary">{msg.username}</span>
+                         <span className="text-[10px] text-muted-foreground">
+                           {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                         </span>
+                       </div>
+                     )}
+                     <div className={cn(
+                       "px-4 py-2.5 rounded-2xl text-sm break-words shadow-sm whitespace-pre-wrap",
+                       isUserMessage 
+                         ? "bg-primary text-primary-foreground rounded-br-none" 
+                         : "bg-muted text-foreground rounded-bl-none"
+                     )}>
+                       {msg.message && msg.message.includes('[GIF](') ? (
+                         // Parse and render GIF messages
+                         <div className="flex flex-col gap-2">
+                           {msg.message.split(/(\[GIF\]\([^)]+\))/g).map((part: string, idx: number) => {
+                             const gifMatch = part.match(/\[GIF\]\(([^)]+)\)/)
+                             if (gifMatch) {
+                               return (
+                                 <img 
+                                   key={idx}
+                                   src={gifMatch[1]} 
+                                   alt="GIF" 
+                                   className="rounded-lg max-w-full h-auto"
+                                   loading="lazy"
+                                 />
+                               )
+                             }
+                             return part && <span key={idx} className="whitespace-pre-wrap">{part}</span>
+                           })}
+                         </div>
+                       ) : (
+                         <span className="whitespace-pre-wrap">{msg.message}</span>
+                       )}
+                     </div>
+                     {isUserMessage && (
+                       <span className="text-[10px] text-muted-foreground px-1">
+                         {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                       </span>
+                     )}
+                   </div>
+                 )}
+              </div>
+            )
+          })}
+        </div>
+      </ScrollArea>
 
       {/* Input Area */}
-      <div 
-        className="border-t border-[var(--chat-border)]"
-        style={{
-          padding: '24px 28px',
-          background: 'var(--panel-bg)',
-        }}
-      >
-        <div className="flex gap-3 items-start">
-          <div className="relative" ref={dropdownRef}>
-            <button
-              id="plusButton"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '22px',
-                background: 'var(--input-bg)',
-                border: '1px solid var(--chat-border)',
-                color: 'var(--text-color)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-              onMouseEnter={(e) => {
-                const btn = e.currentTarget as HTMLButtonElement
-                btn.style.opacity = '0.8'
-              }}
-              onMouseLeave={(e) => {
-                const btn = e.currentTarget as HTMLButtonElement
-                btn.style.opacity = '1'
-              }}
-              aria-label="More actions"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-            </button>
-            
-            {/* Dropdown Menu */}
-            <div
-              id="chatDropdown"
-              className={`absolute bottom-16 left-0 bg-[var(--panel-bg)] border border-[var(--chat-border)] rounded-2xl flex flex-col gap-2 p-2 min-w-[160px] transition-all shadow-lg z-50 ${
-                dropdownOpen ? 'visible opacity-100 translate-y-0' : 'invisible opacity-0 translate-y-2'
-              }`}
-            >
-              <button
-                onClick={() => {
-                    setDropdownOpen(false)
-                    sendCommand({ type: 'init_race' })
-                  }}
-                className="px-4 py-3 rounded-lg bg-transparent text-[var(--text-color)] text-left text-sm cursor-pointer transition-all hover:bg-[var(--input-bg)] flex items-center gap-3"
+      <div className="p-4 bg-sidebar border-t border-border/50">
+        <div className="flex gap-2 items-center">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" className="rounded-full h-10 w-10 shrink-0">
+                <MoreVertical className="w-5 h-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-1" align="start" side="top">
+              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => sendCommand({ type: 'init_race' })}>
+                <Trophy className="w-4 h-4" />
+                Start CPS Race
+              </Button>
+              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => sendCommand({ type: 'init_math_game' })}>
+                <Calculator className="w-4 h-4" />
+                Start Math Game
+              </Button>
+              <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={clearChat}>
+                <Trash2 className="w-4 h-4" />
+                Clear Chat
+              </Button>
+            </PopoverContent>
+          </Popover>
+
+          <div className="flex-1 relative bg-muted/50 rounded-2xl border border-transparent focus-within:border-primary/20 focus-within:bg-background transition-all">
+            <Textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message..."
+              className="min-h-[44px] py-3 px-4 bg-transparent border-none focus-visible:ring-0 resize-none overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent"
+              rows={1}
+            />
+            <div className="flex items-center justify-between px-2 pb-2">
+              <div className="flex gap-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground">
+                      <Smile className="w-5 h-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 border-none shadow-lg bg-background w-auto" align="start" side="top" sideOffset={70} style={{ animation: 'none', marginLeft: '75px' }}>
+                    <EmojiPicker onEmojiClick={(emoji) => onEmojiClick({ emoji })} />
+                  </PopoverContent>
+                </Popover>
+                <Popover open={showGiphyPicker} onOpenChange={setShowGiphyPicker}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground">
+                      <ImageIcon className="w-5 h-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 border-none shadow-lg bg-background w-auto" align="start" side="top" sideOffset={70} style={{ animation: 'none' }}>
+                    <GiphyPicker onGifSelect={handleGifSelect} apiKey={giphyApiKey} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <Button 
+                onClick={handleSend} 
+                size="icon" 
+                className={cn("h-8 w-8 rounded-full transition-all", hasContent ? "opacity-100 scale-100" : "opacity-0 scale-90")}
+                disabled={!hasContent}
               >
-                <span>🏆</span>
-                <span>Start CPS Race</span>
-              </button>
-              <button
-              onClick={clearChat}
-              className="px-4 py-3 rounded-lg bg-transparent text-[var(--text-color)] text-left text-sm cursor-pointer transition-all hover:bg-[var(--input-bg)] flex items-center gap-3"
-              >
-              <span>🗑️</span>
-              <span>Clear Chat</span>
-              </button>
+                <Send className="w-4 h-4" />
+              </Button>
             </div>
           </div>
-
-          <textarea
-            id="chatInput"
-            value={message}
-            onChange={handleTextareaChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Message..."
-            maxLength={500}
-            rows={1}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: '10px 16px',
-              border: '1px solid var(--chat-border)',
-              borderRadius: '16px',
-              background: 'var(--input-bg)',
-              color: 'var(--text-color)',
-              fontSize: '14px',
-              outline: 'none',
-              transition: 'all 0.2s ease',
-              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-              resize: 'none',
-              overflow: 'hidden',
-              minHeight: '44px',
-              maxHeight: '120px',
-            }}
-            onFocus={(e) => {
-              const inp = e.currentTarget as HTMLTextAreaElement
-              inp.style.borderColor = 'var(--accent)'
-              inp.style.boxShadow = '0 0 0 2px rgba(91, 156, 255, 0.1)'
-            }}
-            onBlur={(e) => {
-              const inp = e.currentTarget as HTMLTextAreaElement
-              inp.style.borderColor = 'var(--chat-border)'
-              inp.style.boxShadow = 'none'
-            }}
-          />
-          <button
-            id="sendButton"
-            onClick={handleSend}
-            style={{
-              padding: '10px 16px',
-              borderRadius: '16px',
-              background: 'linear-gradient(90deg, var(--accent) 0%, #4a87ff 100%)',
-              color: 'white',
-              fontWeight: 500,
-              fontSize: '14px',
-              cursor: 'pointer',
-              transition: 'all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1)',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              boxShadow: '0 4px 12px rgba(91, 156, 255, 0.3)',
-              border: 'none',
-              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-            }}
-            onMouseEnter={(e) => {
-              const btn = e.currentTarget as HTMLButtonElement
-              btn.style.transform = 'translateY(-2px)'
-              btn.style.boxShadow = '0 6px 16px rgba(91, 156, 255, 0.4)'
-            }}
-            onMouseLeave={(e) => {
-              const btn = e.currentTarget as HTMLButtonElement
-              btn.style.transform = 'translateY(0)'
-              btn.style.boxShadow = '0 4px 12px rgba(91, 156, 255, 0.3)'
-            }}
-          >
-            Send
-          </button>
         </div>
       </div>
 

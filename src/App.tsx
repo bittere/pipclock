@@ -4,11 +4,13 @@ import ChatPanel from './components/ChatPanel'
 import CpsDisplay from './components/CpsDisplay'
 import Toast from './components/Toast'
 import Confetti from './components/Confetti'
-import { useChat, RaceEvent } from './hooks/useChat'
+import { useChat, RaceEvent, MathGameEvent } from './hooks/useChat'
+import { SettingsModal } from './components/SettingsModal'
 
 function App() {
   const [isDark, setIsDark] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [cps, setCps] = useState(0)
   const [isRaceActive, setIsRaceActive] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -39,6 +41,10 @@ function App() {
     }, [chatOpen]),
     useCallback(() => {
       setHasRaceNotification(true)
+    }, []),
+    useCallback((event: MathGameEvent) => {
+      // Math game messages are handled entirely in useChat and rendered from messages array
+      // No state management needed here
     }, [])
   )
 
@@ -76,8 +82,10 @@ function App() {
   const updateTheme = (dark: boolean) => {
     if (dark) {
       document.documentElement.setAttribute('data-theme', 'dark')
+      document.documentElement.classList.add('dark')
     } else {
       document.documentElement.removeAttribute('data-theme')
+      document.documentElement.classList.remove('dark')
     }
   }
 
@@ -180,7 +188,14 @@ function App() {
       <Confetti ref={confettiRef} />
       <Toast />
       
-      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} chatContext={chatContext} setRaceRef={setRaceRef} onRaceStatusChange={setIsRaceActive} confettiRef={confettiRef} />
+      <ChatPanel 
+        isOpen={chatOpen} 
+        onClose={() => setChatOpen(false)} 
+        chatContext={chatContext} 
+        setRaceRef={setRaceRef} 
+        onRaceStatusChange={setIsRaceActive} 
+        confettiRef={confettiRef}
+      />
       
       <div 
         className="flex flex-col items-center justify-center h-full transition-all"
@@ -368,33 +383,9 @@ function App() {
                 }
               }
             }}
-            className="flex items-center justify-center gap-2.5"
+            className="flex items-center justify-center gap-2.5 px-8 py-4 text-lg font-medium text-white transition-all transform rounded-full shadow-lg hover:scale-105 hover:shadow-xl active:scale-95 bg-gradient-to-r from-orange-500 to-red-600"
             style={{
-              padding: '16px 36px',
-              fontSize: '17px',
-              fontWeight: 500,
-              background: 'var(--button-bg)',
-              color: 'var(--button-text)',
-              border: 'none',
-              borderRadius: '24px',
-              cursor: 'pointer',
-              transition: 'all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              letterSpacing: '-0.2px',
-              lineHeight: 1.6,
               fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-            }}
-            onMouseEnter={(e) => {
-              const btn = e.currentTarget as HTMLButtonElement
-              btn.style.background = 'var(--button-hover)'
-              btn.style.transform = 'translateY(-2px)'
-              btn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
-            }}
-            onMouseLeave={(e) => {
-              const btn = e.currentTarget as HTMLButtonElement
-              btn.style.background = 'var(--button-bg)'
-              btn.style.transform = 'translateY(0)'
-              btn.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)'
             }}
           >
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
@@ -456,33 +447,7 @@ function App() {
           }
         }}
         id="chatToggle"
-        style={{
-          position: 'fixed',
-          bottom: '40px',
-          left: '40px',
-          width: '64px',
-          height: '64px',
-          borderRadius: '50%',
-          padding: 0,
-          background: 'var(--button-bg)',
-          color: 'var(--button-text)',
-          cursor: 'pointer',
-          transition: 'all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1)',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 998,
-          border: 'none',
-        }}
-        onMouseEnter={(e) => {
-          const btn = e.currentTarget as HTMLButtonElement
-          btn.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.2)'
-        }}
-        onMouseLeave={(e) => {
-          const btn = e.currentTarget as HTMLButtonElement
-          btn.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.15)'
-        }}
+        className="fixed bottom-10 left-10 w-16 h-16 rounded-full flex items-center justify-center text-primary-foreground bg-primary shadow-lg transition-all hover:scale-110 hover:shadow-xl active:scale-95 z-[998]"
         aria-label="Toggle Chat"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -497,6 +462,24 @@ function App() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         ) : null}
+      </button>
+
+      <SettingsModal 
+        open={settingsOpen} 
+        onOpenChange={setSettingsOpen} 
+        isDark={isDark} 
+        toggleTheme={toggleTheme} 
+      />
+
+      <button
+        onClick={() => setSettingsOpen(true)}
+        className="fixed top-5 right-5 p-3 rounded-full bg-secondary text-secondary-foreground shadow-md transition-all hover:scale-110 hover:shadow-lg active:scale-95 z-50 flex items-center justify-center"
+        aria-label="Open Settings"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
       </button>
 
       <canvas id="clockCanvas" width="1280" height="720" style={{ position: 'fixed', top: '-9999px', left: '-9999px' }}></canvas>

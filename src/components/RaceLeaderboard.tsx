@@ -25,7 +25,7 @@ export default function RaceLeaderboard({
       }}
     >
       <div
-        className="bg-[var(--panel-bg)] border border-[var(--chat-border)] rounded-lg p-6 w-96 shadow-xl relative overflow-hidden"
+        className="bg-[var(--panel-bg)] border border-[var(--chat-border)] rounded-lg p-6 max-w-sm w-full shadow-xl relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{
           animation: isActive ? 'pop-in 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)' : 'none',

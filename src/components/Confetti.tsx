@@ -34,16 +34,16 @@ const Confetti = forwardRef<ConfettiHandle>((props, ref) => {
   const animationFrameRef = useRef<number | null>(null)
   const animateRef = useRef<(() => void) | null>(null)
 
-  const addConfetti = (x: number, y: number, particleCount: number = 4) => {
+  const addConfetti = (x: number, y: number, particleCount: number = 2) => {
     for (let i = 0; i < particleCount; i++) {
       const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5)
-      const velocity = 4 + Math.random() * 4
+      const velocity = 2 + Math.random() * 2
       const particle: Particle = {
         id: nextIdRef.current++,
         x,
         y,
         vx: Math.cos(angle) * velocity,
-        vy: Math.sin(angle) * velocity - 3,
+        vy: Math.sin(angle) * velocity - 1.5,
         life: 1,
         angle: Math.random() * Math.PI * 2,
         type: ['circle', 'square', 'triangle'][
@@ -56,7 +56,7 @@ const Confetti = forwardRef<ConfettiHandle>((props, ref) => {
   }
 
   useImperativeHandle(ref, () => ({
-    trigger: (x: number, y: number, count: number = 8) => {
+    trigger: (x: number, y: number, count: number = 4) => {
       addConfetti(x, y, count)
       if (!animationFrameRef.current && animateRef.current) {
         animationFrameRef.current = requestAnimationFrame(animateRef.current)
@@ -92,12 +92,12 @@ const Confetti = forwardRef<ConfettiHandle>((props, ref) => {
         const p = particles[i]
 
         // Update physics
-        p.vy += 0.15 // gravity
+        p.vy += 0.1 // gravity
         p.x += p.vx
         p.y += p.vy
-        p.vx *= 0.98 // air resistance
-        p.life -= 0.012
-        p.angle += 0.08
+        p.vx *= 0.96 // air resistance
+        p.life -= 0.018
+        p.angle += 0.06
 
         if (p.life <= 0) {
           particles.splice(i, 1)

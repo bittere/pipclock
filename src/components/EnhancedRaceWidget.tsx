@@ -81,12 +81,13 @@ export default function EnhancedRaceWidget({
           ? '2px solid rgba(76, 175, 80, 0.4)'
           : isActive ? '2px solid rgba(91, 156, 255, 0.5)' : '2px solid rgba(91, 156, 255, 0.2)',
         borderRadius: '24px',
-        padding: '28px',
+        padding: '18px 20px',
         cursor: isCompleted ? 'not-allowed' : 'pointer',
         opacity: isCompleted ? 0.85 : 1,
         transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
         textAlign: 'center',
-        minWidth: '300px',
+        maxWidth: '24rem',
+        width: '100%',
         position: 'relative',
         overflow: 'hidden',
         userSelect: 'none',
@@ -131,19 +132,19 @@ export default function EnhancedRaceWidget({
 
       <div
         style={{
-          fontSize: '18px',
+          fontSize: '14px',
           fontWeight: 600,
-          marginBottom: '20px',
+          marginBottom: '12px',
           color: 'var(--text-color)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '8px',
+          gap: '6px',
           position: 'relative',
           zIndex: 1,
         }}
       >
-        <span style={{ fontSize: '24px' }}>🏆</span>
+        <span style={{ fontSize: '16px' }}>🏆</span>
         <span>CPS Race</span>
         {isActive && (
           <span
@@ -228,35 +229,35 @@ export default function EnhancedRaceWidget({
         </>
       ) : isActive ? (
         <>
-          <div
-            key={clickCount}
-            style={{
-              fontSize: '72px',
-              fontWeight: 900,
-              background: 'linear-gradient(135deg, #5b9cff 0%, #4a87ff 50%, #667eea 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              marginBottom: '12px',
-              animation: 'click-pop 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              position: 'relative',
-              zIndex: 1,
-              letterSpacing: '-2px',
-            }}
-          >
-            {clickCount}
-          </div>
+           <div
+             key={clickCount}
+             style={{
+               fontSize: '48px',
+               fontWeight: 900,
+               background: 'linear-gradient(135deg, #5b9cff 0%, #4a87ff 50%, #667eea 100%)',
+               WebkitBackgroundClip: 'text',
+               WebkitTextFillColor: 'transparent',
+               backgroundClip: 'text',
+               marginBottom: '6px',
+               animation: 'click-pop 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
+               position: 'relative',
+               zIndex: 1,
+               letterSpacing: '-1px',
+             }}
+           >
+             {clickCount}
+           </div>
 
-          <div
-            style={{
-              fontSize: '16px',
-              color: 'var(--text-secondary)',
-              marginBottom: '20px',
-              fontWeight: 600,
-              position: 'relative',
-              zIndex: 1,
-            }}
-          >
+           <div
+             style={{
+               fontSize: '13px',
+               color: 'var(--text-secondary)',
+               marginBottom: '12px',
+               fontWeight: 600,
+               position: 'relative',
+               zIndex: 1,
+             }}
+           >
             <span
               style={{
                 color: remaining < 2 ? '#ff4757' : 'var(--text-color)',
@@ -336,13 +337,13 @@ export default function EnhancedRaceWidget({
         <>
           <div
             style={{
-              fontSize: '56px',
+              fontSize: '40px',
               fontWeight: 900,
               background: 'linear-gradient(135deg, #5b9cff 0%, #667eea 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              marginBottom: '12px',
+              marginBottom: '8px',
               position: 'relative',
               zIndex: 1,
             }}
@@ -351,7 +352,7 @@ export default function EnhancedRaceWidget({
           </div>
           <div
             style={{
-              fontSize: '15px',
+              fontSize: '12px',
               color: 'var(--text-secondary)',
               fontWeight: 500,
               position: 'relative',

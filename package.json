@@ -16,6 +16,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.15.2",
     "@tailwindcss/vite": "^4.1.17",
+    "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
@@ -25,7 +26,21 @@
     "wrangler": "^4.50.0"
   },
   "dependencies": {
+    "@giphy/js-fetch-api": "^5.7.0",
+    "@giphy/react-components": "^10.1.0",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-switch": "^1.2.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "emoji-picker-element": "^1.23.2",
+    "lucide-react": "^0.555.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss-animate": "^1.0.7"
   }
 }

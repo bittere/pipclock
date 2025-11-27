@@ -4,10 +4,12 @@ import { DurableObject } from 'cloudflare:workers';
 export class ChatRoom extends DurableObject {
   sessions: Map<WebSocket, any> = new Map();
   messageHistory: any[] = [];
+  mathGameHistory: any[] = [];
   lastClearTime: number = Date.now();
   races: Map<string, any> = new Map();
   scores: Map<string, any[]> = new Map(); // raceId -> array of score entries
   scoreTimestamps: Map<string, number> = new Map(); // "raceId:userId" -> timestamp for rate limiting
+  mathGameSubmissions: Map<string, any[]> = new Map(); // gameId -> array of submissions
   clearInterval: any;
   inactivityTimeout: number = 60 * 1000; // 1 minute
   inactivityCheckInterval: any;
@@ -23,6 +25,7 @@ export class ChatRoom extends DurableObject {
 
       if (now - this.lastClearTime >= oneHour) {
         this.messageHistory = [];
+        this.mathGameHistory = [];
         this.lastClearTime = now;
 
         // Notify all users that chat was cleared
@@ -178,12 +181,13 @@ export class ChatRoom extends DurableObject {
           this.sessions.set(websocket, session);
 
           // Send message history to new user
-          websocket.send(
-            JSON.stringify({
-              type: 'history',
-              messages: this.messageHistory,
-            })
-          );
+           websocket.send(
+             JSON.stringify({
+               type: 'history',
+               messages: this.messageHistory,
+               mathGames: this.mathGameHistory,
+             })
+           );
 
           // Send current user info
           websocket.send(
@@ -442,7 +446,116 @@ export class ChatRoom extends DurableObject {
             username: username,
             count: data.count,
           });
-        }
+        } else if (data.type === 'init_math_game') {
+          // Start a math game
+          const gameId = Date.now().toString(36);
+          const num1 = Math.floor(Math.random() * 20) + 1;
+          const num2 = Math.floor(Math.random() * 20) + 1;
+          const operator = Math.random() > 0.5 ? '+' : '-';
+          const problem = `${num1} ${operator} ${num2}`;
+          const answer = operator === '+' ? num1 + num2 : num1 - num2;
+          const startTime = Date.now();
+          const endTime = startTime + 30000; // 30 seconds
+
+          const gameEvent = {
+            type: 'math_game_start',
+            gameId,
+            problem,
+            startTime,
+            endTime,
+          };
+
+          this.broadcast(gameEvent);
+
+          // Store in history (keep last 20)
+          this.mathGameHistory.push(gameEvent);
+          if (this.mathGameHistory.length > 20) {
+            this.mathGameHistory.shift();
+          }
+
+          // Store game state (simple version, just in memory for validation)
+          // In a real app, use a map
+          (this as any).activeMathGame = {
+            gameId,
+            answer,
+            endTime,
+          };
+
+          // Auto-end
+          setTimeout(() => {
+            if ((this as any).activeMathGame?.gameId === gameId) {
+              const endEvent = {
+                type: 'math_game_end',
+                gameId,
+              };
+              this.broadcast(endEvent);
+              this.mathGameHistory.push(endEvent);
+              if (this.mathGameHistory.length > 20) {
+                this.mathGameHistory.shift();
+              }
+              (this as any).activeMathGame = null;
+            }
+          }, 30000);
+
+        } else if (data.type === 'submit_math_answer') {
+           const { gameId, answer, elapsedTime } = data;
+           const activeGame = (this as any).activeMathGame;
+
+           if (activeGame && activeGame.gameId === gameId && Date.now() < activeGame.endTime) {
+             // Use client-provided elapsed time if available, otherwise calculate server-side
+             const timeTaken = elapsedTime !== undefined ? elapsedTime : (Date.now() - (activeGame.endTime - 30000)) / 1000;
+             const isCorrect = answer === activeGame.answer;
+             
+             // Track submission
+             if (!this.mathGameSubmissions.has(gameId)) {
+               this.mathGameSubmissions.set(gameId, []);
+             }
+             const submission = {
+               username,
+               time: timeTaken,
+               correct: isCorrect,
+               timestamp: Date.now(),
+             };
+             this.mathGameSubmissions.get(gameId)!.push(submission);
+             
+             // Build leaderboard (all submissions, sorted by correct first, then by time)
+             const submissions = this.mathGameSubmissions.get(gameId)!;
+             const leaderboard = submissions
+               .sort((a: any, b: any) => {
+                 // Sort correct answers first
+                 if (b.correct !== a.correct) {
+                   return b.correct ? 1 : -1;
+                 }
+                 // Then by time (fastest first)
+                 return a.time - b.time;
+               })
+               .slice(0, 50)
+               .map((entry: any) => ({
+                 username: entry.username,
+                 time: entry.time,
+                 correct: entry.correct,
+               }));
+             
+             // Broadcast leaderboard update
+             this.broadcast({
+               type: 'math_game_leaderboard_update',
+               gameId,
+               leaderboard,
+             });
+
+             // If correct, also broadcast winner announcement
+             if (isCorrect) {
+               this.broadcast({
+                 type: 'math_game_won',
+                 gameId,
+                 winner: {
+                   username,
+                   time: timeTaken,
+                 },
+               });
+             }
+           }
+         }
       } catch (err) {
         console.error('Error processing message:', err);
       }
