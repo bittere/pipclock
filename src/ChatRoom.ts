@@ -10,6 +10,8 @@ export class ChatRoom extends DurableObject {
   scores: Map<string, any[]> = new Map(); // raceId -> array of score entries
   scoreTimestamps: Map<string, number> = new Map(); // "raceId:userId" -> timestamp for rate limiting
   mathGameSubmissions: Map<string, any[]> = new Map(); // gameId -> array of submissions
+  hangmanGameHistory: any[] = [];
+  hangmanSubmissions: Map<string, any[]> = new Map(); // gameId -> array of submissions
   clearInterval: any;
   inactivityTimeout: number = 60 * 1000; // 1 minute
   inactivityCheckInterval: any;
@@ -26,6 +28,7 @@ export class ChatRoom extends DurableObject {
       if (now - this.lastClearTime >= oneHour) {
         this.messageHistory = [];
         this.mathGameHistory = [];
+        this.hangmanGameHistory = [];
         this.lastClearTime = now;
 
         // Notify all users that chat was cleared
@@ -186,6 +189,7 @@ export class ChatRoom extends DurableObject {
                type: 'history',
                messages: this.messageHistory,
                mathGames: this.mathGameHistory,
+               hangmanGames: this.hangmanGameHistory,
              })
            );
 
@@ -449,11 +453,18 @@ export class ChatRoom extends DurableObject {
         } else if (data.type === 'init_math_game') {
           // Start a math game
           const gameId = Date.now().toString(36);
-          const num1 = Math.floor(Math.random() * 20) + 1;
-          const num2 = Math.floor(Math.random() * 20) + 1;
-          const operator = Math.random() > 0.5 ? '+' : '-';
+          const num1 = Math.floor(Math.random() * 50) + 1;
+          const num2 = Math.floor(Math.random() * 50) + 1;
+          const operators = ['+', '-', '*'];
+          const operator = operators[Math.floor(Math.random() * operators.length)];
           const problem = `${num1} ${operator} ${num2}`;
-          const answer = operator === '+' ? num1 + num2 : num1 - num2;
+          let answer;
+          switch (operator) {
+            case '+': answer = num1 + num2; break;
+            case '-': answer = num1 - num2; break;
+            case '*': answer = num1 * num2; break;
+            default: answer = 0;
+          }
           const startTime = Date.now();
           const endTime = startTime + 30000; // 30 seconds
 
@@ -555,8 +566,103 @@ export class ChatRoom extends DurableObject {
                });
              }
            }
-         }
-      } catch (err) {
+         } else if (data.type === 'init_hangman_game') {
+            console.log('init_hangman_game received');
+            const words = [
+              { word: 'PHLEGMATIC', hint: 'Having an unemotional and stolidly calm disposition' },
+              { word: 'CACOPHONY', hint: 'A harsh, discordant mixture of sounds' },
+              { word: 'EPHEMERAL', hint: 'Lasting for a very short time' },
+              { word: 'OBSEQUIOUS', hint: 'Obedient or attentive to an excessive or servile degree' },
+              { word: 'QUINTESSENTIAL', hint: 'Representing the most perfect or typical example of a quality or class' },
+              { word: 'IDIOSYNCRASY', hint: 'A mode of behavior or way of thought peculiar to an individual' },
+              { word: 'SURREPTITIOUS', hint: 'Kept secret, especially because it would not be approved of' },
+              { word: 'UBIQUITOUS', hint: 'Present, appearing, or found everywhere' },
+              { word: 'VICARIOUS', hint: 'Experienced in the imagination through the feelings or actions of another person' },
+              { word: 'ZEALOUS', hint: 'Having or showing great energy or enthusiasm' },
+              { word: 'ANEMONE', hint: 'A plant of the buttercup family' },
+              { word: 'COLONEL', hint: 'An army officer of high rank' },
+              { word: 'ISTHMUS', hint: 'A narrow strip of land with sea on either side' },
+              { word: 'MNEMONIC', hint: 'A device that assists in remembering something' },
+              { word: 'ONOMATOPOEIA', hint: 'The formation of a word from a sound associated with what is named' },
+              { word: 'PHENOMENON', hint: 'A fact or situation that is observed to exist or happen' },
+              { word: 'RHYTHM', hint: 'A strong, regular, repeated pattern of movement or sound' },
+              { word: 'SYNECDOCHE', hint: 'A figure of speech in which a part is made to represent the whole' },
+              { word: 'WORCESTERSHIRE', hint: 'A savory sauce of vinegar and soy sauce' },
+              { word: 'XYLOPHONE', hint: 'A musical instrument played by striking a row of wooden bars' }
+            ];
+            const selection = words[Math.floor(Math.random() * words.length)];
+            const gameId = Date.now().toString(36);
+            const startTime = Date.now();
+            
+            const gameEvent = {
+              type: 'hangman_game_start',
+              gameId,
+              word: selection.word,
+              hint: selection.hint,
+              startTime,
+            };
+
+            this.broadcast(gameEvent);
+            
+            // Store in history
+            this.hangmanGameHistory.push({
+              ...gameEvent,
+              timestamp: startTime,
+            });
+            if (this.hangmanGameHistory.length > 20) {
+              this.hangmanGameHistory.shift();
+            }
+
+          } else if (data.type === 'submit_hangman_result') {
+            const { gameId, time, correct } = data;
+            
+            // Track submission
+            if (!this.hangmanSubmissions.has(gameId)) {
+              this.hangmanSubmissions.set(gameId, []);
+            }
+            
+            const submission = {
+              username,
+              time,
+              correct,
+              timestamp: Date.now(),
+            };
+            
+            this.hangmanSubmissions.get(gameId)!.push(submission);
+            
+            // Build leaderboard (sorted by correct first, then time)
+            const submissions = this.hangmanSubmissions.get(gameId)!;
+            const leaderboard = submissions
+              .sort((a: any, b: any) => {
+                if (b.correct !== a.correct) return b.correct ? 1 : -1;
+                return a.time - b.time;
+              })
+              .slice(0, 50)
+              .map((entry: any) => ({
+                username: entry.username,
+                time: entry.time,
+                correct: entry.correct,
+              }));
+              
+            this.broadcast({
+              type: 'hangman_leaderboard_update',
+              gameId,
+              leaderboard,
+            });
+            
+            // If won, announce it
+            if (correct) {
+               this.broadcast({
+                 type: 'hangman_game_won',
+                 gameId,
+                 winner: {
+                   username,
+                   time
+                 }
+               });
+            }
+          }
+       } catch (err) {
         console.error('Error processing message:', err);
       }
     });

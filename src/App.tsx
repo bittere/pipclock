@@ -4,7 +4,7 @@ import ChatPanel from './components/ChatPanel'
 import CpsDisplay from './components/CpsDisplay'
 import Toast from './components/Toast'
 import Confetti from './components/Confetti'
-import { useChat, RaceEvent, MathGameEvent } from './hooks/useChat'
+import { useChat, RaceEvent, MathGameEvent, HangmanGameEvent } from './hooks/useChat'
 import { SettingsModal } from './components/SettingsModal'
 
 function App() {
@@ -45,6 +45,10 @@ function App() {
     }, []),
     useCallback((event: MathGameEvent) => {
       // Math game messages are handled entirely in useChat and rendered from messages array
+      // No state management needed here
+    }, []),
+    useCallback((event: HangmanGameEvent) => {
+      // Hangman game messages are handled entirely in useChat and rendered from messages array
       // No state management needed here
     }, [])
   )

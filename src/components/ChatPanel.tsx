@@ -1,20 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useChat, RaceEvent, MathGameEvent } from '../hooks/useChat'
+import { useState, useEffect, useRef } from 'react'
 import RaceLeaderboard from './RaceLeaderboard'
 import InlineRaceLeaderboard from './InlineRaceLeaderboard'
 import EnhancedRaceWidget from './EnhancedRaceWidget'
 import MathGameWidget from './MathGameWidget'
+import HangmanWidget from './HangmanWidget'
 import ClickParticle from './ClickParticle'
 import GiphyPicker from './GiphyPicker'
 import '../styles/animations.css'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Smile, Image as ImageIcon, MoreVertical, Trash2, Trophy, Search, X, Send, Calculator } from 'lucide-react'
+import { Smile, Image as ImageIcon, MoreVertical, Trash2, Trophy, Search, X, Send, Calculator, Skull } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import EmojiPicker from './EmojiPicker'
+import RichTextEditor, { type RichTextEditorRef } from './RichTextEditor'
+import MessageRenderer from './MessageRenderer'
 
 interface ChatPanelProps {
   isOpen: boolean
@@ -39,40 +40,9 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
   const raceClickCountRef = useRef<Map<string, number>>(new Map())
   const raceTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
   const raceIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editorRef = useRef<RichTextEditorRef>(null)
   
   const { isConnected, messages = [], onlineCount, sendMessage, sendCommand, clearChat, error, username } = chatContext || {}
-  
-
-
-  // Update chat context with math game handler if needed
-  // Note: This relies on App.tsx passing the handler to useChat, but ChatPanel receives the context.
-  // Since useChat is called in App.tsx, we need to pass this handler up or handle it in App.tsx.
-  // However, ChatPanel is where we want the logic.
-  // Let's assume App.tsx passes the event to ChatPanel or we can't easily hook into useChat here.
-  // Actually, ChatPanel takes chatContext as a prop.
-  // So we can't inject the handler into useChat from here unless we lift the state up to App.tsx.
-  // OR, we can listen to messages in filteredMessages and detect math game events if they are added to messages?
-  // No, useChat separates events.
-  
-  // Alternative: App.tsx should handle the event and pass activeMathGame state to ChatPanel.
-  // But I want to keep logic here.
-  // Let's check App.tsx.
-  
-  // For now, I'll assume I can't easily hook into the event stream from here without changing App.tsx.
-  // So I will modify App.tsx to pass onMathGameEvent to useChat, and pass the state down.
-  // OR, I can just use the fact that I modified useChat to accept the callback, but useChat is called in App.tsx.
-  
-  // Let's modify App.tsx to manage the math game state and pass it to ChatPanel.
-  // That seems cleaner.
-  
-  // So I will revert this chunk and instead modify App.tsx.
-  // Wait, I can't revert easily.
-  // I'll just not add the handler here yet.
-  
-  // Actually, I'll add the widget rendering logic here, assuming `activeMathGame` is passed as a prop.
-  // So I need to update ChatPanelProps.
-
   
   // Create race object with update function for App to use
   const race = {
@@ -103,15 +73,6 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
     setPreviousNicknames(stored)
   }, [])
 
-  // Auto-grow textarea
-  useEffect(() => {
-    const textarea = textareaRef.current
-    if (textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
-    }
-  }, [message])
-  
   // Update parent's race ref
   useEffect(() => {
     setRaceRef(race)
@@ -154,19 +115,19 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
     return () => document.removeEventListener('click', handleClick)
   }, [activeRaces.size])
 
-  const hasContent = /\S/.test(message)
+  const hasContent = message.trim().length > 0 || message.includes('<img')
 
   const handleSend = () => {
     if (hasContent && username) {
+      // If message is just empty HTML tags, don't send
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = message
+      if (tempDiv.textContent?.trim() === '' && !message.includes('<img')) {
+        return
+      }
+
       sendMessage(username, message)
       setMessage('')
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
     }
   }
 
@@ -249,10 +210,13 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
   }
 
   const onEmojiClick = (emojiData: any) => {
-    setMessage(prev => prev + emojiData.emoji)
+    // Insert emoji into Tiptap editor using its API
+    if (editorRef.current) {
+      editorRef.current.insertText(emojiData.emoji)
+    }
   }
 
-  const handleGifSelect = (gifUrl: string, gifId: string) => {
+  const handleGifSelect = (gifUrl: string, _gifId: string) => {
     // Send GIF directly as a message
     if (username) {
       const gifText = `[GIF](${gifUrl})`
@@ -315,17 +279,32 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-6 py-4 relative">
-        <div className="flex flex-col gap-4 pb-4">
+        <div className="flex flex-col pb-4">
           {filteredMessages.length === 0 && searchQuery && (
             <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
               No messages match "{searchQuery}"
             </div>
           )}
-          {filteredMessages.map((msg: any) => {
+          {filteredMessages.map((msg: any, index: number) => {
             const isUserMessage = msg.username === username || previousNicknames.includes(msg.username || '')
+            const prevMsg = filteredMessages[index - 1]
             
+            // Check if should group with previous message
+            const isGrouped = prevMsg && 
+              prevMsg.username === msg.username && 
+              prevMsg.type === 'message' && 
+              msg.type === 'message' &&
+              (msg.timestamp - prevMsg.timestamp < 5 * 60 * 1000) // 5 minutes grouping window
+
             return (
-              <div key={msg.id} className={cn("group flex animate-in slide-in-from-bottom-2 duration-300", msg.type === 'race_started' || msg.type === 'math_game' ? 'justify-start' : isUserMessage ? 'justify-end' : 'justify-start')}>
+              <div 
+                key={msg.id} 
+                className={cn(
+                  "group flex animate-in slide-in-from-bottom-2 duration-300", 
+                  msg.type === 'race_started' || msg.type === 'math_game' ? 'justify-start mt-4' : isUserMessage ? 'justify-end' : 'justify-start',
+                  isGrouped ? "mt-1" : "mt-4"
+                )}
+              >
                 {msg.type === 'race_started' ? (
                   <div className="w-full max-w-sm">
                     <EnhancedRaceWidget
@@ -366,9 +345,17 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
                        leaderboard={msg.mathGameData.leaderboard}
                      />
                    </div>
+                 ) : msg.type === 'hangman_game' && msg.hangmanGameData ? (
+                   <div className="w-full max-w-sm">
+                     <HangmanWidget
+                       gameData={msg.hangmanGameData}
+                       onComplete={(result) => sendCommand({ type: 'submit_hangman_result', ...result })}
+                       currentUsername={username}
+                     />
+                   </div>
                  ) : (
                    <div className={cn("flex flex-col gap-1 max-w-[85%]", isUserMessage ? "items-end" : "items-start")}>
-                     {!isUserMessage && (
+                     {!isUserMessage && !isGrouped && (
                        <div className="flex items-baseline gap-2 px-1">
                          <span className="text-xs font-semibold text-primary">{msg.username}</span>
                          <span className="text-[10px] text-muted-foreground">
@@ -377,10 +364,12 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
                        </div>
                      )}
                      <div className={cn(
-                       "px-4 py-2.5 rounded-2xl text-sm break-words shadow-sm whitespace-pre-wrap",
+                       "px-4 py-2.5 rounded-2xl text-sm break-words shadow-sm whitespace-pre-wrap relative",
                        isUserMessage 
                          ? "bg-primary text-primary-foreground rounded-br-none" 
-                         : "bg-muted text-foreground rounded-bl-none"
+                         : "bg-muted text-foreground rounded-bl-none",
+                       isGrouped && isUserMessage && "rounded-tr-md rounded-br-md",
+                       isGrouped && !isUserMessage && "rounded-tl-md rounded-bl-md"
                      )}>
                        {msg.message && msg.message.includes('[GIF](') ? (
                          // Parse and render GIF messages
@@ -398,14 +387,15 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
                                  />
                                )
                              }
-                             return part && <span key={idx} className="whitespace-pre-wrap">{part}</span>
+                             return part && <MessageRenderer key={idx} content={part} />
                            })}
                          </div>
                        ) : (
-                         <span className="whitespace-pre-wrap">{msg.message}</span>
+                         <MessageRenderer content={msg.message} />
                        )}
                      </div>
-                     {isUserMessage && (
+                     {/* Show timestamp on hover for grouped messages, or always for last message in group */}
+                     {isUserMessage && !isGrouped && (
                        <span className="text-[10px] text-muted-foreground px-1">
                          {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                        </span>
@@ -420,10 +410,10 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
 
       {/* Input Area */}
       <div className="p-4 bg-sidebar border-t border-border/50">
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-end">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="icon" className="rounded-full h-10 w-10 shrink-0">
+              <Button variant="outline" size="icon" className="rounded-full h-10 w-10 shrink-0 mb-1">
                 <MoreVertical className="w-5 h-5" />
               </Button>
             </PopoverTrigger>
@@ -436,6 +426,10 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
                 <Calculator className="w-4 h-4" />
                 Start Math Game
               </Button>
+              <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => sendCommand({ type: 'init_hangman_game' })}>
+                <Skull className="w-4 h-4" />
+                Start Hangman
+              </Button>
               <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={clearChat}>
                 <Trash2 className="w-4 h-4" />
                 Clear Chat
@@ -444,15 +438,15 @@ export default function ChatPanel({ isOpen, onClose, chatContext, setRaceRef, on
           </Popover>
 
           <div className="flex-1 relative bg-muted/50 rounded-2xl border border-transparent focus-within:border-primary/20 focus-within:bg-background transition-all">
-            <Textarea
-              ref={textareaRef}
+            <RichTextEditor
+              ref={editorRef}
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onChange={setMessage}
+              onSubmit={handleSend}
               placeholder="Message..."
-              className="min-h-[44px] py-3 px-4 bg-transparent border-none focus-visible:ring-0 resize-none overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent"
-              rows={1}
+              className="min-h-[44px]"
             />
+            
             <div className="flex items-center justify-between px-2 pb-2">
               <div className="flex gap-1">
                 <Popover>

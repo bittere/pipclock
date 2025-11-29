@@ -5,7 +5,7 @@ interface ChatMessage {
   username?: string
   message?: string
   timestamp: number
-  type?: 'message' | 'race_started' | 'math_game'
+  type?: 'message' | 'race_started' | 'math_game' | 'hangman_game'
   raceId?: string
   mathGameData?: {
     gameId: string
@@ -16,30 +16,54 @@ interface ChatMessage {
     winner?: { username: string; time: number }
     leaderboard?: Array<{ username: string; time: number; correct?: boolean }>
   }
+  hangmanGameData?: {
+    gameId: string
+    wordLength?: number
+    maxWrongGuesses?: number
+    guessedLetters?: string[]
+    wrongGuesses?: number
+    startTime: number
+    word?: string
+    hint?: string
+    completed?: boolean
+    winner?: string | null
+    leaderboard?: Array<{ username: string; time: number; correct?: boolean }>
+  }
 }
 
 export interface RaceEvent {
   type: 'race_started' | 'leaderboard_update' | 'race_ended'
-  raceId?: string
-  leaderboard?: Array<{ username: string; score: number }>
-}
-
-export interface MathGameEvent {
-  type: 'math_game_start' | 'math_game_end' | 'math_game_won'
-  gameId: string
-  problem?: string
-  startTime?: number
-  endTime?: number
+  raceId: string
+  targetText?: string
+  leaderboard?: Array<{ username: string; cps: number; time: number }>
   winner?: { username: string; time: number }
 }
 
-export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameReceived?: (username: string) => void, onNewMessage?: () => void, onRaceStarted?: () => void, onMathGameEvent?: (event: MathGameEvent) => void) {
+export interface MathGameEvent {
+  type: 'math_game_start' | 'math_game_leaderboard_update' | 'math_game_end' | 'math_game_won'
+  gameId: string
+  problem?: string
+  leaderboard?: Array<{ username: string; time: number; correct?: boolean }>
+  winner?: { username: string; time: number }
+}
+
+export interface HangmanGameEvent {
+  type: 'hangman_game_start' | 'hangman_leaderboard_update' | 'hangman_game_end' | 'hangman_game_won'
+  gameId: string
+  word?: string
+  hint?: string
+  leaderboard?: Array<{ username: string; time: number; correct?: boolean }>
+  winner?: { username: string; time: number }
+}
+
+export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameReceived?: (username: string) => void, onNewMessage?: () => void, onRaceStarted?: () => void, onMathGameEvent?: (event: MathGameEvent) => void, onHangmanGameEvent?: (event: HangmanGameEvent) => void) {
   const wsRef = useRef<WebSocket | null>(null)
   const onRaceEventRef = useRef(onRaceEvent)
   const onUsernameReceivedRef = useRef(onUsernameReceived)
   const onNewMessageRef = useRef(onNewMessage)
   const onRaceStartedRef = useRef(onRaceStarted)
   const onMathGameEventRef = useRef(onMathGameEvent)
+  const onHangmanGameEventRef = useRef(onHangmanGameEvent)
   const initializingRef = useRef(false)
   const [isConnected, setIsConnected] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -54,7 +78,7 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
     onNewMessageRef.current = onNewMessage
     onRaceStartedRef.current = onRaceStarted
     onMathGameEventRef.current = onMathGameEvent
-  }, [onRaceEvent, onUsernameReceived, onNewMessage, onRaceStarted, onMathGameEvent])
+  }, [onRaceEvent, onUsernameReceived, onNewMessage, onRaceStarted, onMathGameEvent, onHangmanGameEvent])
 
   useEffect(() => {
     // Prevent double initialization in Strict Mode
@@ -88,6 +112,21 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
         if (data.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong' }))
           return
+        } else if (data.type === 'hangman_game_start') {
+           console.log('hangman_game_start received', data);
+           const hangmanMessage: ChatMessage = {
+            id: `hangman-${data.gameId}`,
+            timestamp: Date.now(),
+            type: 'hangman_game',
+            hangmanGameData: {
+              gameId: data.gameId,
+              word: data.word,
+              hint: data.hint,
+              startTime: data.startTime,
+            }
+          }
+          setMessages(prev => [...(Array.isArray(prev) ? prev : []), hangmanMessage])
+          onHangmanGameEventRef.current?.(data)
         } else if (data.type === 'message') {
           const message: ChatMessage = {
             id: `${Date.now()}-${Math.random()}`,
@@ -135,9 +174,36 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
              }
            }
            const mathGames = Array.from(mathGameMap.values())
-           
+
+            // Consolidate hangman games
+            const hangmanGameMap = new Map<string, any>()
+            for (const game of (data.hangmanGames || [])) {
+              const gameId = game.gameId
+              if (!hangmanGameMap.has(gameId)) {
+                hangmanGameMap.set(gameId, {
+                  id: `hangman-${gameId}`,
+                  timestamp: game.startTime || Date.now(),
+                  type: 'hangman_game',
+                  hangmanGameData: {
+                    gameId,
+                    word: game.word,
+                    hint: game.hint,
+                    startTime: game.startTime || Date.now(),
+                  }
+                })
+              }
+              if (game.type === 'hangman_game_won') {
+                 const existing = hangmanGameMap.get(gameId)
+                 if (existing) {
+                   existing.hangmanGameData.completed = true
+                   existing.hangmanGameData.winner = game.winner
+                 }
+              }
+            }
+            const hangmanGames = Array.from(hangmanGameMap.values())
+            
            // Merge and sort by timestamp
-           const allMessages = [...messages, ...mathGames].sort((a: any, b: any) => a.timestamp - b.timestamp)
+           const allMessages = [...messages, ...mathGames, ...hangmanGames].sort((a: any, b: any) => a.timestamp - b.timestamp)
            setMessages(allMessages)
         } else if (data.type === 'user_info') {
           // Receive username from server (server generates fun nicknames)
@@ -171,6 +237,82 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
             raceId: data.raceId,
             leaderboard: data.leaderboard,
           })
+        } else if (data.type === 'hangman_leaderboard_update') {
+           // Update leaderboard in real-time
+           setMessages(prev => 
+            (Array.isArray(prev) ? prev : []).map(msg => {
+              if (msg.hangmanGameData?.gameId === data.gameId && msg.type === 'hangman_game') {
+                return {
+                    ...msg,
+                    hangmanGameData: {
+                      ...msg.hangmanGameData!,
+                      leaderboard: data.leaderboard
+                    }
+                  }
+              }
+              return msg
+            })
+          )
+          onHangmanGameEventRef.current?.(data)
+        } else if (data.type === 'hangman_game_won') {
+          setMessages(prev => 
+            (Array.isArray(prev) ? prev : []).map(msg => {
+              if (msg.hangmanGameData?.gameId === data.gameId && msg.type === 'hangman_game') {
+                return {
+                    ...msg,
+                    hangmanGameData: {
+                      ...msg.hangmanGameData!,
+                      completed: true,
+                      winner: data.winner,
+                    }
+                  }
+              }
+              return msg
+            })
+          )
+          onHangmanGameEventRef.current?.(data)
+        } else if (data.type === 'hangman_game_update') {
+           console.log('hangman_game_update received', data);
+           // Update local message state
+           setMessages(prev => 
+            (Array.isArray(prev) ? prev : []).map(msg => {
+              if (msg.hangmanGameData?.gameId === data.gameId && msg.type === 'hangman_game') {
+                return {
+                    ...msg,
+                    hangmanGameData: {
+                      ...msg.hangmanGameData!,
+                      guessedLetters: data.guessedLetters,
+                      wrongGuesses: data.wrongGuesses,
+                      lastGuess: data.lastGuess,
+                      isCorrect: data.isCorrect,
+                      guesser: data.guesser,
+                    }
+                  }
+              }
+              return msg
+            })
+          )
+          onHangmanGameEventRef.current?.(data)
+        } else if (data.type === 'hangman_game_end') { // Only handle end here, won is separate
+          console.log('hangman_game_end received', data);
+          setMessages(prev => 
+            (Array.isArray(prev) ? prev : []).map(msg => {
+              if (msg.hangmanGameData?.gameId === data.gameId && msg.type === 'hangman_game') {
+                return {
+                    ...msg,
+                    hangmanGameData: {
+                      ...msg.hangmanGameData!,
+                      completed: true,
+                      word: data.word,
+                      guessedLetters: data.guessedLetters,
+                      wrongGuesses: data.wrongGuesses,
+                    }
+                  }
+              }
+              return msg
+            })
+          )
+          onHangmanGameEventRef.current?.(data)
         } else if (data.type === 'math_game_start') {
           // Add math game message to chat history
           const startTime = Date.now()
@@ -191,33 +333,35 @@ export function useChat(onRaceEvent?: (event: RaceEvent) => void, onUsernameRece
         } else if (data.type === 'math_game_leaderboard_update') {
           // Update leaderboard in real-time
           setMessages(prev => 
-            (Array.isArray(prev) ? prev : []).map(msg => 
-              msg.mathGameData?.gameId === data.gameId && msg.type === 'math_game'
-                ? {
+            (Array.isArray(prev) ? prev : []).map(msg => {
+              if (msg.mathGameData?.gameId === data.gameId && msg.type === 'math_game') {
+                return {
                     ...msg,
                     mathGameData: {
-                      ...msg.mathGameData,
+                      ...msg.mathGameData!,
                       leaderboard: data.leaderboard
                     }
                   }
-                : msg
-            )
+              }
+              return msg
+            })
           )
         } else if (data.type === 'math_game_end' || data.type === 'math_game_won') {
           // Update the math game message with completion data
           setMessages(prev => 
-            (Array.isArray(prev) ? prev : []).map(msg => 
-              msg.mathGameData?.gameId === data.gameId && msg.type === 'math_game'
-                ? {
+            (Array.isArray(prev) ? prev : []).map(msg => {
+              if (msg.mathGameData?.gameId === data.gameId && msg.type === 'math_game') {
+                return {
                     ...msg,
                     mathGameData: {
-                      ...msg.mathGameData,
-                      completed: data.type === 'math_game_end' ? true : msg.mathGameData.completed,
-                      winner: data.winner || msg.mathGameData.winner,
+                      ...msg.mathGameData!,
+                      completed: data.type === 'math_game_end' ? true : msg.mathGameData!.completed,
+                      winner: data.winner || msg.mathGameData!.winner,
                     }
                   }
-                : msg
-            )
+              }
+              return msg
+            })
           )
           onMathGameEventRef.current?.(data)
         }
