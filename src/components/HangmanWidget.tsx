@@ -29,6 +29,9 @@ export default function HangmanWidget({ gameData, onComplete, currentUsername }:
   const [fullWordGuess, setFullWordGuess] = useState('')
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  const [isStarted, setIsStarted] = useState(false)
+  const [localStartTime, setLocalStartTime] = useState<number | null>(null)
+
   const maxWrongGuesses = 6
   const word = gameData.word || ''
   const hint = gameData.hint || ''
@@ -42,6 +45,8 @@ export default function HangmanWidget({ gameData, onComplete, currentUsername }:
     setSubmitted(false)
     setElapsed(0)
     setFullWordGuess('')
+    setIsStarted(false)
+    setLocalStartTime(null)
   }, [gameData.gameId])
 
   useEffect(() => {
@@ -50,16 +55,16 @@ export default function HangmanWidget({ gameData, onComplete, currentUsername }:
       // But for individual game, we track local completion
     }
 
-    if (!submitted && !isWon && !isLost) {
+    if (isStarted && localStartTime && !submitted && !isWon && !isLost) {
       timerRef.current = setInterval(() => {
-        setElapsed(Date.now() - gameData.startTime)
+        setElapsed(Date.now() - localStartTime)
       }, 100)
     }
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [gameData.startTime, submitted, isWon, isLost])
+  }, [isStarted, localStartTime, submitted, isWon, isLost])
 
   const handleGuess = (letter: string) => {
     if (isWon || isLost || submitted) return
@@ -112,7 +117,7 @@ export default function HangmanWidget({ gameData, onComplete, currentUsername }:
     
     onComplete({
       gameId: gameData.gameId,
-      time: Date.now() - gameData.startTime,
+      time: localStartTime ? Date.now() - localStartTime : 0,
       correct: won
     })
   }
@@ -143,19 +148,40 @@ export default function HangmanWidget({ gameData, onComplete, currentUsername }:
 
   const parts = [drawHead, drawBody, drawLeftArm, drawRightArm, drawLeftLeg, drawRightLeg]
 
+  const handleStartGame = () => {
+    setIsStarted(true)
+    setLocalStartTime(Date.now())
+  }
+
   return (
-    <Card className="p-4 bg-card/50 backdrop-blur-sm border-primary/20">
-      <div className="flex flex-col gap-4">
+    <Card className="p-4 bg-card/10 backdrop-blur border-primary/20 relative overflow-hidden">
+      {!isStarted && !gameData.completed && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm transition-all flex-col gap-y-6">
+          <div className="flex flex-col gap-1 text-center">
+            <h2 className="text-4xl font-bold">Hangman</h2>
+            <p className="text-center">The cure for all your addictions.</p>
+          </div>
+          <Button 
+            onClick={handleStartGame}
+            size="lg" 
+            className="animate-in fade-in zoom-in duration-300"
+          >
+            Start Game
+          </Button>
+        </div>
+      )}
+
+      <div className={cn("flex flex-col gap-4 transition-all duration-500", (!isStarted && !gameData.completed) && "blur-md opacity-30 pointer-events-none")}>
         {/* Header */}
-        <div className="flex justify-between items-center text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
+        <div className="flex justify-between items-start text-sm text-muted-foreground min-h-[28px]">
+          <div className="flex items-center gap-2 mt-1">
             <Clock className="w-4 h-4" />
             <span>{(elapsed / 1000).toFixed(1)}s</span>
           </div>
           {hint && (
-            <div className="flex items-center gap-1 text-xs bg-secondary/50 px-2 py-1 rounded">
-              <HelpCircle className="w-3 h-3" />
-              {hint}
+            <div className="flex items-start gap-1 text-xs bg-secondary/50 px-2 py-1.5 rounded max-w-[70%] whitespace-normal leading-relaxed text-right">
+              <HelpCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              <span>{hint}</span>
             </div>
           )}
         </div>
@@ -191,11 +217,12 @@ export default function HangmanWidget({ gameData, onComplete, currentUsername }:
                 <Input 
                   value={fullWordGuess}
                   onChange={(e) => setFullWordGuess(e.target.value)}
-                  placeholder="Guess full word..."
+                  placeholder="Guess word"
                   className="h-8 text-xs"
                   maxLength={word.length}
+                  disabled={!isStarted}
                 />
-                <Button type="submit" size="sm" variant="secondary" className="h-8 px-2" disabled={!fullWordGuess}>
+                <Button type="submit" size="sm" variant="secondary" className="h-8 px-2" disabled={!fullWordGuess || !isStarted}>
                   Guess
                 </Button>
               </form>
@@ -226,14 +253,15 @@ export default function HangmanWidget({ gameData, onComplete, currentUsername }:
                     <button
                       key={char}
                       onClick={() => handleGuess(char)}
-                      disabled={isGuessed}
+                      disabled={isGuessed || !isStarted}
                       className={cn(
                         "w-8 h-10 rounded text-sm font-bold transition-all active:scale-95",
                         isGuessed 
                           ? isWrong 
                             ? "bg-destructive/20 text-destructive cursor-not-allowed"
                             : "bg-primary/20 text-primary cursor-not-allowed"
-                          : "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+                          : "bg-secondary hover:bg-secondary/80 text-secondary-foreground",
+                        !isStarted && "pointer-events-none opacity-50"
                       )}
                     >
                       {char}
