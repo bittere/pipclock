@@ -17,6 +17,9 @@ function App() {
   const [hasRaceNotification, setHasRaceNotification] = useState(false)
   const [isPipActive, setIsPipActive] = useState(false)
   const [showPipNotifications, setShowPipNotifications] = useState(true)
+  const [showSeconds, setShowSeconds] = useState(false)
+  const [usePipMonospace, setUsePipMonospace] = useState(true)
+  const [currentTime, setCurrentTime] = useState(new Date())
   const clickCountRef = useRef(0)
   const cpsIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const raceRef = useRef<any>(null)
@@ -26,6 +29,7 @@ function App() {
   const raceActiveRef = useRef(false)
   const frameCountRef = useRef(0)
   const hasRaceNotificationRef = useRef(false)
+  const currentTimeRef = useRef(new Date())
 
   // Initialize chat at app level (only once per app)
   const chatContext = useChat(
@@ -67,11 +71,31 @@ function App() {
     if (savedShowPipNotifications !== null) {
       setShowPipNotifications(JSON.parse(savedShowPipNotifications))
     }
+
+    const savedShowSeconds = localStorage.getItem("showSeconds")
+    if (savedShowSeconds !== null) {
+      setShowSeconds(JSON.parse(savedShowSeconds))
+    }
+
+    const savedUsePipMonospace = localStorage.getItem("usePipMonospace")
+    if (savedUsePipMonospace !== null) {
+      setUsePipMonospace(JSON.parse(savedUsePipMonospace))
+    }
   }, [])
 
   const handleShowPipNotificationsChange = (value: boolean) => {
     setShowPipNotifications(value)
     localStorage.setItem("showPipNotifications", JSON.stringify(value))
+  }
+
+  const handleShowSecondsChange = (value: boolean) => {
+    setShowSeconds(value)
+    localStorage.setItem("showSeconds", JSON.stringify(value))
+  }
+
+  const handleUsePipMonospaceChange = (value: boolean) => {
+    setUsePipMonospace(value)
+    localStorage.setItem("usePipMonospace", JSON.stringify(value))
   }
 
   // Keep ref in sync with unread count
@@ -110,6 +134,27 @@ function App() {
     localStorage.setItem('theme', newDark ? 'dark' : 'light')
     updateTheme(newDark)
   }
+
+  // Centralized time update - syncs both main clock and PiP clock
+  useEffect(() => {
+    const updateTime = () => {
+      const newTime = new Date()
+      setCurrentTime(newTime)
+      currentTimeRef.current = newTime
+    }
+    
+    updateTime()
+    const interval = setInterval(updateTime, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Trigger PiP clock redraw when time changes
+  useEffect(() => {
+    const pipDrawFn = (window as any).__pipDrawClock
+    if (isPipActive && typeof pipDrawFn === 'function') {
+      pipDrawFn()
+    }
+  }, [currentTime, isPipActive])
 
   useEffect(() => {
     // Track clicks in a rolling 1-second window
@@ -220,7 +265,7 @@ function App() {
           transitionTimingFunction: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         }}
       >
-        <Clock />
+        <Clock showSeconds={showSeconds} currentTime={currentTime} />
         
         <div className="flex gap-4 items-center">
           <button
@@ -258,8 +303,8 @@ function App() {
                    // Wait for all fonts to load
                    await document.fonts.ready
                    
-                   // Set canvas size (this automatically clears it)
-                   canvas.width = 1280
+                   // Set canvas size with extra width for padding (this automatically clears it)
+                   canvas.width = 1600
                    canvas.height = 720
                   
                   let lastTime = ''
@@ -267,14 +312,17 @@ function App() {
                    let lastTextColor = ''
                    let lastUnreadCount = unreadCountRef.current
                    let firstFrame = true
-                   
-                   // Function to draw the clock
-                   const drawClock = () => {
-                     const ctx = canvas.getContext('2d')
-                     if (!ctx) return
-                     
-                     const now = new Date()
-                     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+                                      // Function to draw the clock
+                    let drawClock: (() => void) | null = null
+                    drawClock = () => {
+                      const ctx = canvas.getContext('2d')
+                      if (!ctx) return
+                      
+                      // Use centralized time ref (not state) to avoid closure issues
+                      const hours = String(currentTimeRef.current.getHours()).padStart(2, '0')
+                      const minutes = String(currentTimeRef.current.getMinutes()).padStart(2, '0')
+                      const seconds = String(currentTimeRef.current.getSeconds()).padStart(2, '0')
+                      const time = showSeconds ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`
                      
                      // Read current theme colors from CSS variables
                      const styles = getComputedStyle(document.documentElement)
@@ -294,8 +342,14 @@ function App() {
                      ctx.fillRect(0, 0, canvas.width, canvas.height)
                     
                     // Draw the time
-                    ctx.fillStyle = textColor
-                    ctx.font = '700 400px "Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+                     ctx.fillStyle = textColor
+                     // Use smaller font size when showing seconds
+                     const fontSize = showSeconds ? 320 : 400
+                     // Use monospace font for consistent width or normal font based on user preference
+                     const fontFamily = usePipMonospace 
+                       ? '"Consolas", "Monaco", "Courier New", monospace'
+                       : '"Inter", -apple-system, BlinkMacSystemFont, sans-serif'
+                     ctx.font = `700 ${fontSize}px ${fontFamily}`
                     ctx.textAlign = 'center'
                     ctx.textBaseline = 'middle'
                     ctx.fillText(time, canvas.width / 2, canvas.height / 2)
@@ -382,17 +436,22 @@ function App() {
                   pipAnimationRef.current = requestAnimationFrame(animate)
                   
                   // Play the video to ensure stream flows
-                  await video.play().catch(() => {
+                  try {
+                    await video.play()
+                  } catch {
                     // Ignore play errors, video doesn't need to actually play
-                  })
+                  }
                   
                   // Wait for stream to have frames
-                  await new Promise<void>((resolve) => {
-                    setTimeout(resolve, 200)
-                  })
-                  
+                   await new Promise<void>((resolve) => {
+                     setTimeout(resolve, 200)
+                   })
+                   
                   await video.requestPictureInPicture()
                   setIsPipActive(true)
+                  
+                  // Store drawClock reference for time updates
+                  (window as any).__pipDrawClock = drawClock
                 } catch (err) {
                   console.error('PiP failed:', err)
                 }
@@ -486,6 +545,10 @@ function App() {
         toggleTheme={toggleTheme} 
         showPipNotifications={showPipNotifications}
         onShowPipNotificationsChange={handleShowPipNotificationsChange}
+        showSeconds={showSeconds}
+        onShowSecondsChange={handleShowSecondsChange}
+        usePipMonospace={usePipMonospace}
+        onUsePipMonospaceChange={handleUsePipMonospaceChange}
       />
 
       <button

@@ -12,6 +12,10 @@ interface SettingsModalProps {
   toggleTheme: () => void
   showPipNotifications: boolean
   onShowPipNotificationsChange: (value: boolean) => void
+  showSeconds: boolean
+  onShowSecondsChange: (value: boolean) => void
+  usePipMonospace: boolean
+  onUsePipMonospaceChange: (value: boolean) => void
 }
 
 function getLuminance(hex: string) {
@@ -23,7 +27,7 @@ function getLuminance(hex: string) {
   return luminance;
 }
 
-export function SettingsModal({ open, onOpenChange, isDark, toggleTheme, showPipNotifications, onShowPipNotificationsChange }: SettingsModalProps) {
+export function SettingsModal({ open, onOpenChange, isDark, toggleTheme, showPipNotifications, onShowPipNotificationsChange, showSeconds, onShowSecondsChange, usePipMonospace, onUsePipMonospaceChange }: SettingsModalProps) {
   const [primaryColor, setPrimaryColor] = useState("#000000")
 
   // Load saved colors on mount
@@ -87,6 +91,31 @@ export function SettingsModal({ open, onOpenChange, isDark, toggleTheme, showPip
               checked={showPipNotifications}
               onCheckedChange={onShowPipNotificationsChange}
             />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="show-seconds" className="text-right">
+              Show Seconds
+            </Label>
+            <Switch
+              id="show-seconds"
+              checked={showSeconds}
+              onCheckedChange={onShowSecondsChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="pip-monospace" className="text-right">
+                PiP Monospace Font
+              </Label>
+              <Switch
+                id="pip-monospace"
+                checked={usePipMonospace}
+                onCheckedChange={onUsePipMonospaceChange}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Note: Disabling monospace may cause the PiP text to shift as digits change width.
+            </p>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="primary-color" className="text-right">

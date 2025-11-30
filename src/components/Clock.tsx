@@ -1,20 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
-export default function Clock() {
+interface ClockProps {
+  showSeconds?: boolean
+  currentTime: Date
+}
+
+export default function Clock({ showSeconds = false, currentTime }: ClockProps) {
   const [time, setTime] = useState('00:00')
 
   useEffect(() => {
-    const updateClock = () => {
-      const now = new Date()
-      const hours = String(now.getHours()).padStart(2, '0')
-      const minutes = String(now.getMinutes()).padStart(2, '0')
-      setTime(`${hours}:${minutes}`)
-    }
-
-    updateClock()
-    const interval = setInterval(updateClock, 1000)
-    return () => clearInterval(interval)
-  }, [])
+    const hours = String(currentTime.getHours()).padStart(2, '0')
+    const minutes = String(currentTime.getMinutes()).padStart(2, '0')
+    const seconds = String(currentTime.getSeconds()).padStart(2, '0')
+    setTime(showSeconds ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`)
+  }, [currentTime, showSeconds])
 
   return (
     <div 
