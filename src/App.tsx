@@ -4,6 +4,7 @@ import ChatPanel from './components/ChatPanel'
 import CpsDisplay from './components/CpsDisplay'
 import Toast from './components/Toast'
 import Confetti from './components/Confetti'
+import FeatureNotification from './components/FeatureNotification'
 import { useChat, RaceEvent, MathGameEvent, HangmanGameEvent } from './hooks/useChat'
 import { SettingsModal } from './components/SettingsModal'
 
@@ -80,6 +81,17 @@ function App() {
     const savedUsePipMonospace = localStorage.getItem("usePipMonospace")
     if (savedUsePipMonospace !== null) {
       setUsePipMonospace(JSON.parse(savedUsePipMonospace))
+    }
+
+    // Periodic cleanup of previousNicknames (every 24 hours)
+    const lastClearTime = localStorage.getItem('lastNicknameClearTime')
+    const now = Date.now()
+    const oneDay = 24 * 60 * 60 * 1000
+
+    if (!lastClearTime || now - parseInt(lastClearTime) > oneDay) {
+      localStorage.removeItem('previousNicknames')
+      localStorage.setItem('lastNicknameClearTime', now.toString())
+      console.log('Cleared previousNicknames from localStorage')
     }
   }, [])
 
@@ -247,6 +259,10 @@ function App() {
       )}
       <Confetti ref={confettiRef} />
       <Toast />
+      <FeatureNotification 
+        message="Harder hangman + Seconds in clock (check settings)!" 
+        id="hangman-vocabulary-expansion-v1"
+      />
       
       <ChatPanel 
         isOpen={chatOpen} 
